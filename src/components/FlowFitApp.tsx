@@ -21,6 +21,7 @@ const FlowFitApp = () => {
     currentPhase: 'folicular',
     cycleDay: 10
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [timer, setTimer] = useState(45);

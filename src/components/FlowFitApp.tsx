@@ -39,19 +39,39 @@ const FlowFitApp = () => {
     lutea: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
   };
 
-  const todayWorkout: TodayWorkout = {
+  const [todayWorkoutState, setTodayWorkoutState] = useState<TodayWorkout>({
     title: 'Força + Cardio Moderado',
     duration: '35 min',
     intensity: 'Moderada-Alta',
     reason: 'Sua energia está no pico! Seu corpo responde super bem a treinos intensos agora.',
     exercises: [
-      { name: 'Agachamento', sets: '3x12', rest: '45s', video: '🎥' },
-      { name: 'Flexão Inclinada', sets: '3x10', rest: '45s', video: '🎥' },
-      { name: 'Afundo Alternado', sets: '3x10', rest: '45s', video: '🎥' },
-      { name: 'Prancha', sets: '3x30s', rest: '30s', video: '🎥' },
-      { name: 'Burpees', sets: '3x8', rest: '60s', video: '🎥' }
+      { name: 'Agachamento', sets: [
+        { set: 1, reps: 12 },
+        { set: 2, reps: 12 },
+        { set: 3, reps: 12 }
+      ], rest: "45s", video: "🎥" },
+      { name: 'Flexão Inclinada', sets: [
+        { set: 1, reps: 10 },
+        { set: 2, reps: 10 },
+        { set: 3, reps: 10 }
+      ], rest: "45s", video: "🎥" },
+      { name: 'Afundo Alternado', sets: [
+        { set: 1, reps: 10 },
+        { set: 2, reps: 10 },
+        { set: 3, reps: 10 }
+      ], rest: "45s", video: "🎥" },
+      { name: 'Prancha', sets: [
+        { set: 1, reps: 30 },
+        { set: 2, reps: 30 },
+        { set: 3, reps: 30 }
+      ], rest: "30s", video: "🎥" },
+      { name: 'Burpees', sets: [
+        { set: 1, reps: 8 },
+        { set: 2, reps: 8 },
+        { set: 3, reps: 8 }
+      ], rest: "60s", video: "🎥" }
     ]
-  };
+  });
 
   const weekProgress: WeekProgressItem[] = [
     { day: 'Seg', completed: true, intensity: 8 },
@@ -146,8 +166,29 @@ const FlowFitApp = () => {
     setCurrentExercise(0);
   };
 
-  const nextExercise = () => {
-    if (currentExercise < todayWorkout.exercises.length - 1) {
+  const nextExercise = (reps: number, weight: number) => {
+    const updatedWorkout = { ...todayWorkoutState };
+    const currentEx = updatedWorkout.exercises[currentExercise];
+
+    currentEx.reps = reps;
+    currentEx.weight = weight;
+
+    // PR Logic
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    if (reps > (currentEx.prReps || 0)) {
+      currentEx.prReps = reps;
+      currentEx.prDate = today;
+    }
+
+    if (weight > (currentEx.prWeight || 0)) {
+      currentEx.prWeight = weight;
+      currentEx.prDate = today;
+    }
+
+    setTodayWorkoutState(updatedWorkout);
+
+    if (currentExercise < todayWorkoutState.exercises.length - 1) {
       setCurrentExercise(currentExercise + 1);
       setTimer(45);
     } else {
@@ -174,7 +215,7 @@ const FlowFitApp = () => {
           setCurrentScreen={setCurrentScreen}
           userData={userData}
           cyclePhases={cyclePhases}
-          todayWorkout={todayWorkout}
+          todayWorkout={todayWorkoutState}
           startWorkout={startWorkout}
         />
       )}
@@ -183,8 +224,8 @@ const FlowFitApp = () => {
           setCurrentScreen={setCurrentScreen}
           setWorkoutInProgress={setWorkoutInProgress}
           currentExercise={currentExercise}
-          todayWorkout={todayWorkout}
-          progress={((currentExercise + 1) / todayWorkout.exercises.length) * 100}
+          todayWorkout={todayWorkoutState}
+          progress={((currentExercise + 1) / todayWorkoutState.exercises.length) * 100}
           timer={timer}
           isPaused={isPaused}
           setIsPaused={setIsPaused}

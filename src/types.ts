@@ -24,9 +24,14 @@ export interface CyclePhases {
 
 export interface TodayWorkoutExercise {
   name: string;
-  sets: string;
+  sets: {set: number , reps: number, }[];
   rest: string;
   video: string;
+  reps?: number;
+  weight?: number;
+  prReps?: number;
+  prWeight?: number;
+  prDate?: string;
 }
 
 export interface TodayWorkout {

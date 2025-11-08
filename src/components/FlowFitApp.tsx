@@ -7,10 +7,13 @@ import HomeScreen from './HomeScreen';
 import WorkoutActiveScreen from './WorkoutActiveScreen';
 import HistoryScreen from './HistoryScreen';
 import SettingsScreen from './SettingsScreen';
+import LoginScreen from './LoginScreen';
+import RegisterScreen from './RegisterScreen';
+import ForgotPasswordScreen from './ForgotPasswordScreen';
 import { UserData, CyclePhases, TodayWorkout, WeekProgressItem, OnboardingScreenConfig } from '../types';
 
 const FlowFitApp = () => {
-  const [currentScreen, setCurrentScreen] = useState('onboarding');
+  const [currentScreen, setCurrentScreen] = useState('login');
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [userData, setUserData] = useState<UserData>({
     name: '',
@@ -199,6 +202,15 @@ const FlowFitApp = () => {
 
   return (
     <div>
+      {currentScreen === 'login' && (
+        <LoginScreen setCurrentScreen={setCurrentScreen} />
+      )}
+      {currentScreen === 'register' && (
+        <RegisterScreen setCurrentScreen={setCurrentScreen} />
+      )}
+      {currentScreen === 'forgot-password' && (
+        <ForgotPasswordScreen setCurrentScreen={setCurrentScreen} />
+      )}
       {currentScreen === 'onboarding' && (
         <OnboardingScreen
           setCurrentScreen={setCurrentScreen}

@@ -6,6 +6,18 @@
 create table if not exists users (
     id TEXT PRIMARY KEY,             
     email TEXT UNIQUE NOT NULL,      
+    plan TEXT CHECK (plan IN ('free', 'premium')) DEFAULT 'free',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ===========================
+-- USER PROFILES
+-- ===========================
+create table if not exists user_profiles (
+    id uuid primary key default uuid_generate_v4(),
+    user_id text not null references users(id) on delete cascade,
+    age integer,
     name TEXT NOT NULL,
     goal TEXT,                      
     equipment TEXT[] DEFAULT ARRAY[]::TEXT[], 
@@ -17,10 +29,18 @@ create table if not exists users (
     body_weight NUMERIC,
     body_height NUMERIC,
     onboarding_completed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at timestamp with time zone default now()
+)
+-- ===========================
+-- CYCLE PHASE RULES
+-- ===========================
+create table if not exists cycle_phase_rules (
+    id uuid primary key default uuid_generate_v4(),
+    phase text not null check (phase in ('menstrual', 'follicular', 'ovulatory', 'luteal')),
+    duration_days_base integer not null,
+    intensity_modifier text,
+    notes text;
 );
-
 
 -- ===========================
 -- MENSTRUAL CYCLES
@@ -77,6 +97,7 @@ create table if not exists workouts (
     title text not null,
     training_level text,
     training_type text,
+    equipment text not null check (equipment in ('none', 'elastic', 'dumbbell')),
     workout_description text,
     time_predicted integer,
     created_at timestamp with time zone default now()

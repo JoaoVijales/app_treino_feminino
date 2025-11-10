@@ -37,6 +37,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ setCurrentScreen }) => {
       >
         Entrar
       </button>
+      <button
+        onClick={() => console.log('Login with Google clicked')}
+        className="w-full px-6 py-4 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all mt-3 flex items-center justify-center gap-2"
+      >
+        {/* Placeholder for Google Icon */}
+        Login com Google
+      </button>
       <div className="text-center text-gray-600 text-sm mt-4">
         <button onClick={() => setCurrentScreen('forgot-password')} className="text-rose-500 hover:underline">
           Esqueceu sua senha?

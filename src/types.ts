@@ -4,10 +4,10 @@ import { LucideProps } from 'lucide-react';
 export interface UserData {
   name: string;
   goal: string;
-  equipment: string[];
+  equipment: string;
   cycleRegular: string;
   lastPeriod: string;
-  currentPhase: 'menstrual' | 'folicular' | 'ovulatoria' | 'lutea';
+  currentPhase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | null;
   cycleDay: number;
 }
 
@@ -23,11 +23,11 @@ export interface CyclePhases {
 }
 
 export interface TodayWorkoutExercise {
+  order: number;
   name: string;
-  sets: {set: number , reps: number, }[];
-  rest: string;
+  series: number | null;
+  reps: number | null;
   video: string;
-  reps?: number;
   weight?: number;
   prReps?: number;
   prWeight?: number;
@@ -35,6 +35,7 @@ export interface TodayWorkoutExercise {
 }
 
 export interface TodayWorkout {
+  id: string;
   title: string;
   duration: string;
   intensity: string;
@@ -57,3 +58,4 @@ export interface OnboardingScreenConfig {
   question?: string;
   options?: { value: string; label: string; icon: string; }[];
 }
+

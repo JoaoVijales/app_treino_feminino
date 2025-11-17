@@ -11,7 +11,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ setCurrentScreen }) => {
 
   const handleLogin = () => {
     // For now, just navigate to home screen
-    console.log('Login attempt:', { email, password });
+    //console.log('Login attempt:', { email, password });
     setCurrentScreen('home');
   };
 

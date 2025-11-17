@@ -11,20 +11,14 @@ import LoginScreen from './LoginScreen';
 import RegisterScreen from './RegisterScreen';
 import ForgotPasswordScreen from './ForgotPasswordScreen';
 import { UserData, CyclePhases, TodayWorkout, WeekProgressItem, OnboardingScreenConfig } from '../types';
+import { FlowFitProvider, useFlowFit } from '../context/FlowFitContext';
+import { updateUserProfile, addUserWorkoutSession } from '../utils/api';
 
-const FlowFitApp = () => {
+const AppContent = () => {
+  const { userData, todayWorkoutState, loading, setUserData, userProfile } = useFlowFit();
   const [currentScreen, setCurrentScreen] = useState('login');
   const [onboardingStep, setOnboardingStep] = useState(0);
-  const [userData, setUserData] = useState<UserData>({
-    name: '',
-    goal: '',
-    equipment: [],
-    cycleRegular: '',
-    lastPeriod: '',
-    currentPhase: 'folicular',
-    cycleDay: 10
-  });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [timer, setTimer] = useState(45);
@@ -38,44 +32,13 @@ const FlowFitApp = () => {
 
   const cyclePhases: CyclePhases = {
     menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸' },
-    folicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
-    ovulatoria: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
-    lutea: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
+    follicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
+    ovulatory: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
+    luteal: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
   };
 
-  const [todayWorkoutState, setTodayWorkoutState] = useState<TodayWorkout>({
-    title: 'Força + Cardio Moderado',
-    duration: '35 min',
-    intensity: 'Moderada-Alta',
-    reason: 'Sua energia está no pico! Seu corpo responde super bem a treinos intensos agora.',
-    exercises: [
-      { name: 'Agachamento', sets: [
-        { set: 1, reps: 12 },
-        { set: 2, reps: 12 },
-        { set: 3, reps: 12 }
-      ], rest: "45s", video: "🎥" },
-      { name: 'Flexão Inclinada', sets: [
-        { set: 1, reps: 10 },
-        { set: 2, reps: 10 },
-        { set: 3, reps: 10 }
-      ], rest: "45s", video: "🎥" },
-      { name: 'Afundo Alternado', sets: [
-        { set: 1, reps: 10 },
-        { set: 2, reps: 10 },
-        { set: 3, reps: 10 }
-      ], rest: "45s", video: "🎥" },
-      { name: 'Prancha', sets: [
-        { set: 1, reps: 30 },
-        { set: 2, reps: 30 },
-        { set: 3, reps: 30 }
-      ], rest: "30s", video: "🎥" },
-      { name: 'Burpees', sets: [
-        { set: 1, reps: 8 },
-        { set: 2, reps: 8 },
-        { set: 3, reps: 8 }
-      ], rest: "60s", video: "🎥" }
-    ]
-  });
+  const [todayWorkout, setTodayWorkout] = useState<TodayWorkout | null>(todayWorkoutState);
+
 
   const weekProgress: WeekProgressItem[] = [
     { day: 'Seg', completed: true, intensity: 8 },
@@ -138,22 +101,12 @@ const FlowFitApp = () => {
     }
   ];
 
-
-
-
-
-
-
-
-
-
-
-
-
-  const handleOnboardingNext = () => {
+  const handleOnboardingNext = async () => {
     if (onboardingStep < onboardingScreens.length - 1) {
       setOnboardingStep(onboardingStep + 1);
     } else {
+      const userId = 'test_user_001'; // Hardcoded user ID
+      await updateUserProfile(userId, { ...userData, onboarding_completed: true });
       setCurrentScreen('home');
     }
   };
@@ -168,10 +121,12 @@ const FlowFitApp = () => {
     setWorkoutInProgress(true);
     setCurrentScreen('workout-active');
     setCurrentExercise(0);
+    //console.log(currentExercise)
   };
 
-  const nextExercise = (reps: number, weight: number) => {
-    const updatedWorkout = { ...todayWorkoutState };
+  const nextExercise = async (reps: number, weight: number) => {
+    if (!todayWorkout) return;
+    const updatedWorkout = { ...todayWorkout };
     const currentEx = updatedWorkout.exercises[currentExercise];
 
     currentEx.reps = reps;
@@ -190,15 +145,31 @@ const FlowFitApp = () => {
       currentEx.prDate = today;
     }
 
-    setTodayWorkoutState(updatedWorkout);
+    setTodayWorkout(updatedWorkout);
 
-    if (currentExercise < todayWorkoutState.exercises.length - 1) {
+    if (currentExercise < todayWorkout.exercises.length - 1) {
       setCurrentExercise(currentExercise + 1);
       setTimer(45);
     } else {
+      if (userProfile && todayWorkoutState) {
+        await addUserWorkoutSession({
+          user_id: userProfile.user_id,
+          workout_id: todayWorkoutState.id,
+          duration: parseInt(todayWorkoutState.duration),
+          actual_phase: userData.currentPhase,
+        });
+      }
       setCurrentScreen('feedback');
     }
   };
+
+  if (loading && currentScreen === 'home') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -226,19 +197,16 @@ const FlowFitApp = () => {
       {currentScreen === 'home' && (
         <HomeScreen
           setCurrentScreen={setCurrentScreen}
-          userData={userData}
-          cyclePhases={cyclePhases}
-          todayWorkout={todayWorkoutState}
           startWorkout={startWorkout}
         />
       )}
-      {currentScreen === 'workout-active' && (
+      {currentScreen === 'workout-active' && todayWorkout && (
         <WorkoutActiveScreen
           setCurrentScreen={setCurrentScreen}
           setWorkoutInProgress={setWorkoutInProgress}
           currentExercise={currentExercise}
-          todayWorkout={todayWorkoutState}
-          progress={((currentExercise + 1) / todayWorkoutState.exercises.length) * 100}
+          todayWorkout={todayWorkout}
+          progress={((currentExercise + 1) / todayWorkout.exercises.length) * 100}
           timer={timer}
           isPaused={isPaused}
           setIsPaused={setIsPaused}
@@ -249,22 +217,24 @@ const FlowFitApp = () => {
       {currentScreen === 'calendar' && (
         <CalendarScreen
           setCurrentScreen={setCurrentScreen}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          periodDates={periodDates}
-          setPeriodDates={setPeriodDates}
-          userData={userData}
-          cyclePhases={cyclePhases}
         />
       )}
       {currentScreen === 'history' && (
         <HistoryScreen
           setCurrentScreen={setCurrentScreen}
-          weekProgress={weekProgress}
         />
       )}
       {currentScreen === 'settings' && <SettingsScreen setCurrentScreen={setCurrentScreen} />}
     </div>
+  );
+}
+
+
+const FlowFitApp = () => {
+  return (
+    <FlowFitProvider>
+      <AppContent />
+    </FlowFitProvider>
   );
 };
 

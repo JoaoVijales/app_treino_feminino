@@ -12,7 +12,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
 
   const handleRegister = () => {
     // For now, just navigate to home screen
-    console.log('Register attempt:', { name, email, password });
+    //console.log('Register attempt:', { name, email, password });
     setCurrentScreen('home');
   };
 

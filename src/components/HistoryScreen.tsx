@@ -1,13 +1,79 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronLeft, Check, Home, Calendar, BarChart3, Settings, Zap, Moon } from 'lucide-react';
-import { WeekProgressItem } from '../types';
+import { useFlowFit } from '../context/FlowFitContext';
+import { getWorkoutById } from '../utils/api';
 
 interface HistoryScreenProps {
   setCurrentScreen: (screen: string) => void;
-  weekProgress: WeekProgressItem[];
 }
 
-const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen, weekProgress }) => {
+interface DetailedWorkoutHistory {
+  date: string;
+  name: string;
+  duration: string;
+  rpe: number;
+}
+
+const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen }) => {
+  const { workoutHistory } = useFlowFit();
+  const [detailedHistory, setDetailedHistory] = useState<DetailedWorkoutHistory[]>([]);
+
+  useEffect(() => {
+    const fetchWorkoutDetails = async () => {
+      const detailedHistoryPromises = workoutHistory.map(async (session) => {
+        if (!session.workout_id) return null;
+        const workout = await getWorkoutById(session.workout_id);
+        if (!workout) return null;
+
+        return {
+          date: new Date(session.session_date + 'T00:00:00').toLocaleDateString(),
+          name: workout.title,
+          duration: `${session.duration || 0} min`,
+          rpe: session.intensity_rating || 0,
+        };
+      });
+
+      const resolvedHistory = await Promise.all(detailedHistoryPromises);
+      setDetailedHistory(resolvedHistory.filter((item): item is DetailedWorkoutHistory => item !== null));
+    };
+
+    fetchWorkoutDetails();
+  }, [workoutHistory]);
+
+  const getStartOfWeek = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to make Monday the first day
+    return new Date(d.setDate(diff));
+  };
+
+  const today = new Date();
+  const startOfWeek = getStartOfWeek(today);
+  const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+  const weekProgress = weekDays.map((dayName, index) => {
+    const date = new Date(startOfWeek);
+    date.setDate(startOfWeek.getDate() + index);
+
+    const workoutOnDay = workoutHistory.find(session => {
+      const sessionDate = new Date(session.session_date + 'T00:00:00');
+      return sessionDate.toDateString() === date.toDateString();
+    });
+
+    return {
+      day: dayName,
+      completed: !!workoutOnDay,
+      intensity: workoutOnDay?.intensity_rating || 0,
+      duration: workoutOnDay?.duration || 0,
+    };
+  });
+
+  const weeklyWorkouts = weekProgress.filter(d => d.completed);
+  const totalWorkouts = weeklyWorkouts.length;
+  const totalMinutes = weeklyWorkouts.reduce((sum, d) => sum + d.duration, 0);
+  const averageRPE = totalWorkouts > 0 ? (weeklyWorkouts.reduce((sum, d) => sum + d.intensity, 0) / totalWorkouts).toFixed(1) : 0;
+
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-200 p-6">
@@ -39,15 +105,15 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen, weekPro
           </div>
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
             <div>
-              <div className="text-2xl font-bold text-gray-800">4</div>
+              <div className="text-2xl font-bold text-gray-800">{totalWorkouts}</div>
               <div className="text-xs text-gray-600">Treinos</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-800">140</div>
+              <div className="text-2xl font-bold text-gray-800">{totalMinutes}</div>
               <div className="text-xs text-gray-600">Minutos</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-800">7.5</div>
+              <div className="text-2xl font-bold text-gray-800">{averageRPE}</div>
               <div className="text-xs text-gray-600">RPE médio</div>
             </div>
           </div>
@@ -91,12 +157,7 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen, weekPro
         <div className="bg-white rounded-3xl p-6 shadow-lg">
           <h3 className="font-bold text-gray-800 mb-4">Histórico de Treinos</h3>
           <div className="space-y-3">
-            {[
-              { date: 'Hoje', name: 'Força + Cardio', duration: '35 min', rpe: 8 },
-              { date: 'Ontem', name: 'HIIT Intervalado', duration: '25 min', rpe: 9 },
-              { date: '2 dias atrás', name: 'Mobilidade', duration: '20 min', rpe: 4 },
-              { date: '3 dias atrás', name: 'Força Superior', duration: '40 min', rpe: 7 }
-            ].map((workout, idx) => (
+            {detailedHistory.map((workout, idx) => (
               <div key={idx} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
                 <div className="flex-1">
                   <div className="font-semibold text-gray-800">{workout.name}</div>

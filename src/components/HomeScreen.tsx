@@ -1,18 +1,67 @@
 import React from 'react';
 import { Activity, Clock, Target, Info, Play, Settings, Calendar, BarChart3, Zap } from 'lucide-react';
-import { UserData, CyclePhases, TodayWorkout } from '../types';
+import { useFlowFit } from '../context/FlowFitContext';
+import { CyclePhases } from '../types';
+import { Droplet, Sun, Moon } from 'lucide-react';
+
 
 interface HomeScreenProps {
-  userData: UserData;
-  cyclePhases: CyclePhases;
-  todayWorkout: TodayWorkout;
   startWorkout: () => void;
   setCurrentScreen: (screen: string) => void;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ userData, cyclePhases, todayWorkout, startWorkout, setCurrentScreen }) => {
-  const phase = cyclePhases[userData.currentPhase];
+const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen }) => {
+  const { userData, todayWorkoutState } = useFlowFit();
+  const currentPhase = userData.currentPhase;
+
+  const cyclePhases: CyclePhases = {
+    menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸',},
+    follicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
+    ovulatory: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
+    luteal: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
+  };
+
+  const cyclePhasesText = {
+    menstrual: 'Durante a fase menstrual, é importante ouvir seu corpo. Foque em exercícios leves e alongamentos para aliviar o desconforto.',
+    follicular: 'Na fase folicular, seu corpo está preparado para novos desafios. Tente aumentar a carga ou fazer mais uma série!',
+    ovulatory: 'Durante a fase ovulatória, você pode sentir um pico de energia. Aproveite para realizar treinos mais intensos!',
+    luteal: 'Na fase lútea, o foco deve ser na recuperação e no alongamento. Considere incluir sessões de yoga ou pilates.'
+  };
+
+  function getPhaseText(){
+    if (!currentPhase) return '';
+    const phase = cyclePhasesText[currentPhase];
+    return phase;
+  }
+
+  if (!currentPhase) {
+    console.log('not currentPhase')
+    // Render a loading state or a message if the phase is not yet available
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p>Loading cycle information...</p>
+      </div>
+    );
+  }
+
+  const phase = cyclePhases[currentPhase];
   const PhaseIcon = phase.icon;
+  
+  function get_date_today() {
+    const today = new Date();
+    const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+    return today.toLocaleDateString('pt-BR', options);
+  }
+
+
+  if (!todayWorkoutState) {
+    console.log('not todayWorkoutState' )
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p>No workout available for today.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -20,10 +69,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userData, cyclePhases, todayWor
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold">Olá, {userData.name || 'Ana'}!</h2>
-            <p className="text-rose-100 text-sm">Quinta, 6 de Novembro</p>
+            <p className="text-rose-100 text-sm">{get_date_today()}</p>
           </div>
           <button className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
-            <Settings className="w-6 h-6" />
+            <Settings className="w-6 h-6" 
+                onClick={() => setCurrentScreen('settings')}/>
           </button>
         </div>
 
@@ -55,7 +105,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userData, cyclePhases, todayWor
           <div className="flex items-start justify-between mb-4">
             <div>
               <h3 className="text-xl font-bold text-gray-800 mb-1">Seu treino hoje</h3>
-              <p className="text-gray-600 text-sm">{todayWorkout.title}</p>
+              <p className="text-gray-600 text-sm">{todayWorkoutState.title}</p>
             </div>
             <div className="w-12 h-12 bg-gradient-to-br from-rose-400 to-purple-400 rounded-2xl flex items-center justify-center">
               <Activity className="w-6 h-6 text-white" />
@@ -65,18 +115,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userData, cyclePhases, todayWor
           <div className="flex gap-4 mb-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
-              {todayWorkout.duration}
+              {todayWorkoutState.duration}
             </div>
             <div className="flex items-center gap-1">
               <Target className="w-4 h-4" />
-              {todayWorkout.intensity}
+              {todayWorkoutState.intensity}
             </div>
           </div>
 
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 mb-4">
             <div className="flex items-start gap-2">
               <Info className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-700">{todayWorkout.reason}</p>
+              <p className="text-sm text-gray-700">{todayWorkoutState.reason}</p>
             </div>
           </div>
 
@@ -110,8 +160,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userData, cyclePhases, todayWor
             Dica do dia
           </h4>
           <p className="text-sm text-gray-700">
-            Na fase folicular, seu corpo está preparado para novos desafios.
-            Tente aumentar a carga ou fazer mais uma série!
+            {getPhaseText()}
           </p>
         </div>
       </div>

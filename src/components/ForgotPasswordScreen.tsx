@@ -10,7 +10,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ setCurrentS
 
   const handleResetPassword = () => {
     // For now, just navigate to login screen
-    console.log('Password reset attempt for:', email);
+    //console.log('Password reset attempt for:', email);
     setCurrentScreen('login');
   };
 

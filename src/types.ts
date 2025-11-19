@@ -23,6 +23,7 @@ export interface CyclePhases {
 }
 
 export interface TodayWorkoutExercise {
+  id: string;
   order: number;
   name: string;
   series: number | null;

@@ -156,3 +156,32 @@ create table if not exists user_workout_exercise_sessions_sets (
     ref_set integer not null references workout_exercises(order),
     created_at timestamp with time zone default now()
 );
+
+
+-- precisa ser adicianado ainda:
+
+-- ===========================
+-- User Workuot Records
+-- ===========================
+create table if not exists user_workout_records (
+    id uuid primary key default uuid_generate_v4(),
+    user_id text not null references users(id) on delete cascade,
+    workout_id uuid not null references workouts(id),
+    record_load numeric,
+    record_date date default current_date,
+    created_at timestamp with time zone default now()
+);
+
+-- ===========================
+-- User Workuot Exercise Records
+-- ===========================
+create table if not exists user_exercise_records (
+    id uuid primary key default uuid_generate_v4(),
+    user_id text not null references users(id) on delete cascade,
+    workout_id uuid not null references workouts(id),
+    exercise_id uuid not null references exercises(id),
+    exercise_session_id uuid not null references workout_exercises(id),
+    record_load numeric,
+    record_date date default current_date,
+    created_at timestamp with time zone default now()
+);

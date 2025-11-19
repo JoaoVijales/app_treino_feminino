@@ -91,3 +91,49 @@ export interface UserWorkoutSession {
   load_workout_total: number | null;
   created_at: string;
 }
+
+export interface UserWorkoutExerciseSessions {
+  id: string;
+  session_id: string;
+  exercise_session_id: string;
+  load_exercise_session: number | null;
+  created_at: string;
+}
+
+export interface UserWorkoutExerciseSets {
+  id: string;
+  exercise_session_id: string;
+  load_set: number | null;
+  weight_done: number | null;
+  reps_done: number | null;
+  ref_set: number;
+  created_at: string;
+  
+}
+
+export interface FullWorkoutSession {
+  workoutSession: UserWorkoutSession;
+  exerciseSessions: {
+    exercise: UserWorkoutExerciseSessions;
+    sets?: UserWorkoutExerciseSets[];
+  }[];
+}
+
+export interface UserWorkoutRecord {
+  id?: string;
+  user_id: string;
+  workout_id: string;
+  record_load: number | null;
+  record_date: string;
+  created_at: string;
+}
+
+export interface UserExerciseRecord {
+  id?: string;
+  user_id: string;
+  workout_id: string;
+  exercise_id: string;
+  record_load: number | null;
+  exercise_session_id : string;
+  created_at: string;
+}

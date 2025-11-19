@@ -20,69 +20,102 @@ export const useFlowFitData = () => {
   const [todayWorkoutState, setTodayWorkoutState] = useState<TodayWorkout | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<UserWorkoutSession[]>([]);
   const [menstrualCycles, setMenstrualCycles] = useState<MenstrualCycle[]>([]);
+  
+const userId = 'test_user_001';
 
-  useEffect(() => {
-    const fetchData = async () => {
-      // Hardcoded user ID for now
-      const userId = 'test_user_001';
+useEffect(() => {
+    const fetchInitialData = async () => {
       setLoading(true);
 
       const profile = await getUserProfile(userId);
       setUserProfile(profile);
 
       const history = await getUserWorkoutSessions(userId);
-      if (history) {
-        setWorkoutHistory(history);
-      }
+      if (history) setWorkoutHistory(history);
 
       const cycles = await getMenstrualCycles(userId);
-      if (cycles) {
-        setMenstrualCycles(cycles);
-      }
+      if (cycles) setMenstrualCycles(cycles);
 
-      if (profile && profile.last_period && profile.equipment) {
-        const cycleDay = differenceInDays(new Date(), new Date(profile.last_period));
-        const phase = getCyclePhase(new Date(profile.last_period), 28); // Assuming 28 day cycle for now
-        //console.log(phase, cycleDay)
-        setUserData({
-          name: profile.name,
-          goal: profile.goal || '',
-          equipment: profile.equipment || 'none',
-          cycleRegular: profile.cycle_regular || '',
-          lastPeriod: profile.last_period || '',
-          currentPhase: phase,
-          cycleDay: cycleDay,
-        });
-
-        const Workout = await selectWorkoutPlan(userData.currentPhase || '', userId, profile.equipment[1]);
-        //console.log(Workout)
-        if (Workout) {
-            const workouExercises = await getWorkoutDetails(Workout.id);
-            //console.log(workouExercises)
-            if (workouExercises) {
-              setTodayWorkoutState({
-                id: Workout.id,
-                title: Workout.title,
-                duration: `${Workout.time_predicted} min`,
-                intensity: Workout.intensity,
-                reason: Workout.workout_description || '',
-                exercises: workouExercises.map((wd) => ({
-                  name: wd.name,
-                  series: wd.series,
-                  reps: wd.reps,
-                  video: wd.video || '🎥',
-                  order: wd.order
-                })),
-              });
-              console.log(todayWorkoutState)
-            }
-          }
-      }
       setLoading(false);
     };
 
-    fetchData();
+    fetchInitialData();
   }, []);
+
+  // -----------------------------------------------------
+  // 2️⃣ Segundo efeito: roda SOMENTE depois que userProfile existir
+  // -----------------------------------------------------
+  useEffect(() => {
+    const processUserProfile = async () => {
+      if (!userProfile) return;  // evita execução precoce
+      if (!userProfile.last_period) return;
+
+      // 2.1 Calcular ciclo
+      const cycleDay = differenceInDays(
+        new Date(),
+        new Date(userProfile.last_period)
+      );
+
+      const phase = getCyclePhase(new Date(userProfile.last_period), 28);
+
+      // 2.2 Atualizar userData
+      setUserData({
+        name: userProfile.name,
+        goal: userProfile.goal || '',
+        equipment: userProfile.equipment || 'none',
+        cycleRegular: userProfile.cycle_regular || '',
+        lastPeriod: userProfile.last_period,
+        currentPhase: phase,
+        cycleDay: cycleDay,
+      });
+
+      // -----------------------------------------------------
+      // 2.3 Buscar workout SOMENTE agora
+      // -----------------------------------------------------
+      const primaryEquipment =
+        Array.isArray(userProfile.equipment)
+          ? userProfile.equipment[0] || 'none'
+          : userProfile.equipment || 'none';
+
+      const Workout = await selectWorkoutPlan(
+        phase || '',
+        userId,
+        primaryEquipment
+      );
+
+      if (!Workout) {
+        setTodayWorkoutState(null);
+        return;
+      }
+
+      // 2.4 Detalhes dos exercícios
+      const workouExercises = await getWorkoutDetails(Workout.id);
+
+      if (workouExercises) {
+        setTodayWorkoutState({
+          id: Workout.id,
+          title: Workout.title,
+          duration: `${Workout.time_predicted} min`,
+          intensity: Workout.intensity,
+          reason: Workout.workout_description || '',
+          exercises: workouExercises.map((wd) => ({
+            id: wd.id,
+            name: wd.name,
+            series: wd.series,
+            reps: wd.reps,
+            video: wd.video || '🎥',
+            order: wd.order,
+          })),
+        });
+      }
+    };
+
+    processUserProfile();
+  }, [userProfile]); // 🔥 dispara apenas quando userProfile vem do supabase
+
+  useEffect(() => {
+      console.log('todayWorkoutState updated:', todayWorkoutState);
+    }, [todayWorkoutState]);
 
   return { userData, todayWorkoutState, loading, userProfile, workoutHistory, menstrualCycles, setUserData };
 };

@@ -19,15 +19,9 @@ const AppContent = () => {
   const [currentScreen, setCurrentScreen] = useState('login');
   const [onboardingStep, setOnboardingStep] = useState(0);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [timer, setTimer] = useState(45);
   const [isPaused, setIsPaused] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-  const [periodDates, setPeriodDates] = useState<Array<{ start: string; end: string }>>([
-    { start: '2024-10-28', end: '2024-11-02' },
-    { start: '2024-11-25', end: '2024-11-30' }
-  ]);
 
 
   const cyclePhases: CyclePhases = {
@@ -36,8 +30,6 @@ const AppContent = () => {
     ovulatory: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
     luteal: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
   };
-
-  const [todayWorkout, setTodayWorkout] = useState<TodayWorkout | null>(todayWorkoutState);
 
 
   const weekProgress: WeekProgressItem[] = [
@@ -118,50 +110,12 @@ const AppContent = () => {
   };
 
   const startWorkout = () => {
-    setWorkoutInProgress(true);
     setCurrentScreen('workout-active');
     setCurrentExercise(0);
     //console.log(currentExercise)
   };
 
-  const nextExercise = async (reps: number, weight: number) => {
-    if (!todayWorkout) return;
-    const updatedWorkout = { ...todayWorkout };
-    const currentEx = updatedWorkout.exercises[currentExercise];
-
-    currentEx.reps = reps;
-    currentEx.weight = weight;
-
-    // PR Logic
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-    if (reps > (currentEx.prReps || 0)) {
-      currentEx.prReps = reps;
-      currentEx.prDate = today;
-    }
-
-    if (weight > (currentEx.prWeight || 0)) {
-      currentEx.prWeight = weight;
-      currentEx.prDate = today;
-    }
-
-    setTodayWorkout(updatedWorkout);
-
-    if (currentExercise < todayWorkout.exercises.length - 1) {
-      setCurrentExercise(currentExercise + 1);
-      setTimer(45);
-    } else {
-      if (userProfile && todayWorkoutState) {
-        await addUserWorkoutSession({
-          user_id: userProfile.user_id,
-          workout_id: todayWorkoutState.id,
-          duration: parseInt(todayWorkoutState.duration),
-          actual_phase: userData.currentPhase,
-        });
-      }
-      setCurrentScreen('feedback');
-    }
-  };
+  
 
   if (loading && currentScreen === 'home') {
     return (
@@ -200,17 +154,16 @@ const AppContent = () => {
           startWorkout={startWorkout}
         />
       )}
-      {currentScreen === 'workout-active' && todayWorkout && (
+      {currentScreen === 'workout-active' && (
         <WorkoutActiveScreen
           setCurrentScreen={setCurrentScreen}
-          setWorkoutInProgress={setWorkoutInProgress}
+          setCurrentExercise={setCurrentExercise}
           currentExercise={currentExercise}
-          todayWorkout={todayWorkout}
-          progress={((currentExercise + 1) / todayWorkout.exercises.length) * 100}
+          todayWorkout={todayWorkoutState}
+          progress={todayWorkoutState ? ( (currentExercise + 1) / todayWorkoutState.exercises.length) * 100 : 0}
           timer={timer}
           isPaused={isPaused}
           setIsPaused={setIsPaused}
-          nextExercise={nextExercise}
         />
       )}
       {currentScreen === 'feedback' && <FeedbackScreen setCurrentScreen={setCurrentScreen} />}

@@ -34,7 +34,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen 
     return phase;
   }
 
-  if (!currentPhase) {
+  if (!currentPhase || !todayWorkoutState) {
     console.log('not currentPhase')
     // Render a loading state or a message if the phase is not yet available
     return (
@@ -54,14 +54,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen 
   }
 
 
-  if (!todayWorkoutState) {
-    console.log('not todayWorkoutState' )
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p>No workout available for today.</p>
-      </div>
-    );
-  }
+  // if (!todayWorkoutState) {
+  //   console.log('not todayWorkoutState' )
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <p>No workout available for today.</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen bg-gray-50">

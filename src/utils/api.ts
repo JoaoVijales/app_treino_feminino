@@ -8,6 +8,10 @@ import {
     WorkoutExercise,
     UserWorkoutSession,
     Exercise,
+    UserWorkoutRecord,
+    UserExerciseRecord,
+    UserWorkoutExerciseSessions,
+    UserWorkoutExerciseSets
 } from '../types/supabase';
 import { TodayWorkoutExercise } from '../types';
 
@@ -150,6 +154,7 @@ export const getWorkoutDetails = async (workoutId: string): Promise<TodayWorkout
             // Build a TodayWorkoutExercise entry; cast to TodayWorkoutExercise to satisfy the return type.
             // Adjust fields here if TodayWorkoutExercise has a different shape.
             const entry = {
+                id: exc.id,
                 order: exc.order,
                 name: exercise?.name ?? null,
                 series: exc.series,
@@ -227,6 +232,22 @@ export const getExercises = async (): Promise<Exercise[] | null> => {
     return data;
 };
 
+export const getExerciseById = async (exerciseId: string): Promise<Exercise | null> => {
+    const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('id', exerciseId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching exercise by id:', error);
+        return null;
+    }
+
+    return data;
+}
+
+
 
 // ===========================
 // USER WORKOUT SESSIONS
@@ -248,21 +269,25 @@ export const getUserWorkoutSessions = async (userId: string): Promise<UserWorkou
 };
 
 export const getUserWorkoutSessionlasted = async (userId: string): Promise<string[]> => {
-    const { data, error } = await supabase
-        .from('user_workout_sessions')
-        .select('workout_id')
-        .eq('user_id', userId)
-        .order('session_date', { ascending: false });
+  const { data, error } = await supabase
+    .from('user_workout_sessions')
+    .select('workout_id')
+    .eq('user_id', userId)
+    .order('session_date', { ascending: false });
 
-    if (error) {
-        console.error('Error fetching user workout sessions:', error);
-        return [];
-    }
+  if (error) {
+    console.error('Error fetching workout sessions:', error);
+    return [];
+  }
 
-    return data.map((session) => session.workout_id);
-}
+  if (!data || data.length === 0) return [];
 
-export const addUserWorkoutSession = async (sessionData: Partial<UserWorkoutSession>): Promise<UserWorkoutSession | null> => {
+  return data.map((session) => session.workout_id);
+};
+
+
+
+export const addUserWorkoutSession = async (sessionData: UserWorkoutSession): Promise<UserWorkoutSession | null> => {
     const { data, error } = await supabase
         .from('user_workout_sessions')
         .insert([sessionData])
@@ -276,3 +301,168 @@ export const addUserWorkoutSession = async (sessionData: Partial<UserWorkoutSess
 
     return data;
 };
+
+export const addUserWorkoutExerciseSessions = async (exerciseSessionData: UserWorkoutExerciseSessions[]): Promise<UserWorkoutExerciseSessions | null> => {
+    exerciseSessionData.forEach(async (exerciseSessionData) => {
+        const { data, error } = await supabase
+            .from('user_workout_exercise_sessions')
+            .insert([exerciseSessionData])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error adding user workout exercise session:', error);
+            return null;
+        }
+
+        return data;
+    });
+    return null;
+}
+
+export const addUserWorkoutExerciseSets = async (exerciseSetData: UserWorkoutExerciseSets[]): Promise<UserWorkoutExerciseSets | null> => {
+    exerciseSetData.forEach(async (exerciseSetData) => {
+    const { data, error } = await supabase
+        .from('user_workout_exercise_sets')
+        .insert([exerciseSetData])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error adding user workout exercise set:', error);
+        return null;
+    }
+
+    return data;
+});
+return null;
+}
+
+
+export const getUserWorkoutExerciseSessions = async (sessionId: string): Promise<UserWorkoutExerciseSessions[] | null> => {
+    const { data, error } = await supabase
+        .from('user_workout_exercise_sessions')
+        .select('*')
+        .eq('session_id', sessionId);
+
+    if (error) {
+        console.error('Error fetching user workout exercise sessions:', error);
+        return null;
+    }
+
+    return data;
+}
+
+export const getUserWorkoutExerciseSets = async (userWorkoutExerciseSessionId: string): Promise<UserWorkoutExerciseSets[] | null> => {
+    const { data, error } = await supabase
+        .from('user_workout_exercise_sets')
+        .select('*')
+        .eq('user_workout_exercise_session_id', userWorkoutExerciseSessionId);
+
+    if (error) {
+        console.error('Error fetching user workout exercise sets:', error);
+        return null;
+    }
+
+    return data;
+}
+
+// ===========================
+// USER RECORDS
+// ===========================
+
+export const getUserWorkoutRecords = async (userId: string): Promise<UserWorkoutRecord[] | null>  => {
+    const { data, error } = await supabase
+        .from('user_workout_records')
+        .select('*')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching user workout records:', error);
+        return null;
+    }
+
+    return data;
+}
+
+export const addUserWorkoutRecord = async (recordData: Partial<UserWorkoutRecord>): Promise<UserWorkoutRecord | null> => {
+    const { data, error } = await supabase
+        .from('user_workout_records')
+        .insert([recordData])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error adding user workout record:', error);
+        return null;
+    }
+
+    return data;
+}
+
+export const updateUserWorkoutRecord = async (userId: string, workoutId: string, recordData: Partial<UserWorkoutRecord>): Promise<UserWorkoutRecord | null> => {
+    const { data, error } = await supabase
+        .from('user_workout_records')
+        .update(recordData)
+        .eq('user_id', userId)
+        .eq('workout_id', workoutId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating user workout record:', error);
+        return null;
+    }
+
+    return data;
+}
+
+// ===========================
+// USER EXERCISE RECORDS
+// ===========================
+
+export const getUserExerciseRecords = async (userId: string): Promise<UserExerciseRecord[] | null> => {
+    const { data, error } = await supabase
+        .from('user_exercise_records')
+        .select('*')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching user exercise records:', error);
+        return null;
+    }
+
+    return data;
+}
+
+export const addUserExerciseRecord = async (recordData: Partial<UserExerciseRecord>): Promise<UserExerciseRecord | null> => {
+    const { data, error } = await supabase
+        .from('user_exercise_records')
+        .insert([recordData])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error adding user exercise record:', error);
+        return null;
+    }
+
+    return data;
+}
+
+export const updateUserExerciseRecord = async (userId: string, exerciseId: string, recordData: Partial<UserExerciseRecord>): Promise<UserExerciseRecord | null> => {
+    const { data, error } = await supabase
+        .from('user_exercise_records')
+        .update(recordData)
+        .eq('user_id', userId)
+        .eq('exercise_id', exerciseId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating user exercise record:', error);
+        return null;
+    }
+
+    return data;
+}

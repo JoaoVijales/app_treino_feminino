@@ -1,23 +1,47 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
+import { useWorkoutSession } from '../hooks/useWorkoutSession';
 
 interface FeedbackScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
 const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ setCurrentScreen }) => {
+  const {updateWokoutFeedBack, submitWorkoutSession} = useWorkoutSession();
   const [rpe, setRpe] = useState(5);
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
 
   const symptomOptions = [
-    { value: 'energizada', label: 'Energizada', icon: '⚡' },
-    { value: 'cansada', label: 'Cansada', icon: '😴' },
-    { value: 'forte', label: 'Me senti forte', icon: '💪' },
-    { value: 'dor', label: 'Alguma dor', icon: '🤕' },
-    { value: 'colica', label: 'Cólica', icon: '🩹' },
-    { value: 'otima', label: 'Ótima!', icon: '✨' }
+    { value: 'energized', label: 'Energizada', icon: '⚡' },
+    { value: 'tired', label: 'Cansada', icon: '😴' },
+    { value: 'strong', label: 'Me senti forte', icon: '💪' },
+    { value: 'pain', label: 'Alguma dor', icon: '🤕' },
+    { value: 'cramps', label: 'Cólica', icon: '🩹' },
+    { value: 'great', label: 'Ótima!', icon: '✨' }
   ];
+
+  const handleSubmitFeedback = async() => {
+    if (!rpe && symptoms.length && !notes) {
+      alert('Por favor, forneça pelo menos uma forma de feedback antes de continuar.');
+      return;
+    }
+    updateWokoutFeedBack(
+      rpe,
+      symptoms.length ? symptoms[0] as 'energized' | 'tired' | 'strong' | 'pain' | 'cramps' | 'great' : null,
+      notes
+    );
+
+    try {
+      await submitWorkoutSession();
+    } catch (error) {
+      console.error('Erro ao salvar o feedback:', error);
+      alert('Houve um erro ao salvar seu feedback. Por favor, tente novamente.');
+      return
+    }
+
+    setCurrentScreen('home');
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-6 flex flex-col">

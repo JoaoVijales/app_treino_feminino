@@ -1,23 +1,56 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronLeft, Check, Home, Calendar, BarChart3, Settings, Zap, Moon } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
-import { getWorkoutById } from '../utils/api';
+import { getWorkoutById, getUserWorkoutExerciseSessions, getUserWorkoutExerciseSets, getExerciseById } from '../utils/api';
+import { UserWorkoutExerciseSessions, UserWorkoutExerciseSets } from '../types/supabase';
 
 interface HistoryScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
 interface DetailedWorkoutHistory {
+  id: string;
   date: string;
   name: string;
   duration: string;
   rpe: number;
 }
 
+interface ExerciseDetails {
+  name: string;
+  sets: UserWorkoutExerciseSets[];
+}
+
 const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen }) => {
   const { workoutHistory } = useFlowFit();
   const [detailedHistory, setDetailedHistory] = useState<DetailedWorkoutHistory[]>([]);
+  const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
+  const [workoutDetails, setWorkoutDetails] = useState<Record<string, ExerciseDetails[]>>({});
 
+  const handleWorkoutClick = async (sessionId: string) => {
+    if (expandedWorkoutId === sessionId) {
+      setExpandedWorkoutId(null);
+    } else {
+      setExpandedWorkoutId(sessionId);
+      if (!workoutDetails[sessionId]) {
+        const exerciseSessions = await getUserWorkoutExerciseSessions(sessionId);
+        if (exerciseSessions) {
+          const details: ExerciseDetails[] = await Promise.all(
+            exerciseSessions.map(async (exSession: UserWorkoutExerciseSessions) => {
+              const sets = await getUserWorkoutExerciseSets(exSession.id);
+              const exercise = await getExerciseById(exSession.exercise_session_id);
+              return {
+                name: exercise?.name || 'Unknown Exercise',
+                sets: sets || [],
+              };
+            })
+          );
+          setWorkoutDetails((prev) => ({ ...prev, [sessionId]: details }));
+        }
+      }
+    }
+  };
+  
   useEffect(() => {
     const fetchWorkoutDetails = async () => {
       const detailedHistoryPromises = workoutHistory.map(async (session) => {
@@ -26,6 +59,7 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen }) => {
         if (!workout) return null;
 
         return {
+          id: session.id,
           date: new Date(session.session_date + 'T00:00:00').toLocaleDateString(),
           name: workout.title,
           duration: `${session.duration || 0} min`,
@@ -157,25 +191,44 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen }) => {
         <div className="bg-white rounded-3xl p-6 shadow-lg">
           <h3 className="font-bold text-gray-800 mb-4">Histórico de Treinos</h3>
           <div className="space-y-3">
-            {detailedHistory.map((workout, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
-                <div className="flex-1">
-                  <div className="font-semibold text-gray-800">{workout.name}</div>
-                  <div className="text-xs text-gray-600">{workout.date} • {workout.duration}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-gray-800">RPE {workout.rpe}</div>
-                  <div className="flex gap-0.5 mt-1">
-                    {[...Array(10)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-1.5 h-3 rounded-full ${
-                          i < workout.rpe ? 'bg-rose-400' : 'bg-gray-200'
-                        }`}
-                      />
-                    ))}
+          {detailedHistory.map((workout, idx) => (
+              <div key={idx} className="bg-gray-50 rounded-xl">
+                <div 
+                  className="flex items-center gap-4 p-3"
+                  onClick={() => handleWorkoutClick(workout.id)}
+                >
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-800">{workout.name}</div>
+                    <div className="text-xs text-gray-600">{workout.date} • {workout.duration}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-gray-800">RPE {workout.rpe}</div>
+                    <div className="flex gap-0.5 mt-1">
+                      {[...Array(10)].map((_, i) => (
+                        <div
+                          key={i}
+                          className={`w-1.5 h-3 rounded-full ${
+                            i < workout.rpe ? 'bg-rose-400' : 'bg-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
+                {expandedWorkoutId === workout.id && (
+                  <div className="p-3">
+                    {workoutDetails[workout.id]?.map((exercise, index) => (
+                      <div key={index} className="mb-2">
+                        <p className="font-semibold text-gray-700">{exercise.name}</p>
+                        {exercise.sets.map((set, setIndex) => (
+                          <p key={setIndex} className="text-xs text-gray-600">
+                            Série {setIndex + 1}: {set.reps_done} reps com {set.weight_done} kg
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

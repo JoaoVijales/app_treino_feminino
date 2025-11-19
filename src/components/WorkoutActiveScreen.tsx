@@ -1,77 +1,104 @@
-import React, { useState, useEffect } from 'react';
+"use client"
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, ChevronRight, Pause, Play } from 'lucide-react';
 import { TodayWorkout } from '../types';
+import { FullWorkoutSession, Workout } from '../types/supabase';
+import { useWorkoutSession } from '../hooks/useWorkoutSession';
 
 interface WorkoutActiveScreenProps {
     setCurrentScreen: (screen: string) => void;
-    setWorkoutInProgress: (inProgress: boolean) => void;
+    setCurrentExercise: (index: number) => void;
     currentExercise: number;
-    todayWorkout: TodayWorkout;
+    todayWorkout: TodayWorkout | null;
     progress: number;
     timer: number;
     isPaused: boolean;
     setIsPaused: (isPaused: boolean) => void;
-    nextExercise: (reps: number, weight: number) => void;
 }
 
 const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
     setCurrentScreen,
-    setWorkoutInProgress,
+    setCurrentExercise,
     currentExercise,
     todayWorkout,
     progress,
     timer,
     isPaused,
     setIsPaused,
-    nextExercise,
 }) => {
-    let exercise = todayWorkout.exercises[currentExercise];
-    console.log(currentExercise)
 
-    const [currentReps, setCurrentReps] = useState<number>(exercise.reps || 0);
-    const [currentWeight, setCurrentWeight] = useState<number>(exercise.weight || 0);
-    const [currentsets, setCurrentsets] = useState([]);
+    // Sempre seguro — não mutável
 
-    function getSeries() {
-        if (exercise.series) {
-            for (let index = 0; index < exercise.series; index++) {
-                return (
-                    <div className="flex justify-around items-center mb-4" key={index}>
-                        <div className="text-center">
-                            <label htmlFor={`reps-${index}`} className="text-gray-400 text-sm block mb-1">Repetições</label>
-                            <input
-                                id={`reps-${index}`}
-                                type="number"
-                                value={currentReps}
-                                onChange={(e) => setCurrentReps(Number(e.target.value))}
-                                className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
-                            />
-                        </div>
-                        <div className="text-center">
-                            <label htmlFor={`weight-${index}`} className="text-gray-400 text-sm block mb-1">Peso (kg)</label>
-                            <input
-                                id={`weight-${index}`}
-                                type="number"
-                                value={currentWeight}
-                                onChange={(e) => setCurrentWeight(Number(e.target.value))}
-                                className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
-                            />
-                        </div>
-                    </div>
-                )
-
-            }
-        }
-    }
+    const exercise = todayWorkout?.exercises?.[currentExercise];
+    const { updateExerciseSet, updatePRExerciseSession, updateExerciseLoad, updateWokoutLoad } = useWorkoutSession();
+    // States
+    const [currentReps, setCurrentReps] = useState<number>(exercise?.reps || 0);
+    const [currentWeight, setCurrentWeight] = useState<number>(exercise?.weight || 0);
 
 
-
-
+    // Atualiza reps/weight quando troca de exercício
     useEffect(() => {
-        setCurrentReps(exercise.reps || 0);
-        setCurrentWeight(exercise.weight || 0);
-        exercise = todayWorkout.exercises[currentExercise];
-    }, [currentExercise, exercise, todayWorkout]);
+        if (exercise) {
+            setCurrentReps(exercise.reps || 0);
+            setCurrentWeight(exercise.weight || 0);
+        }
+    }, [exercise]);
+
+    const nextExercise = async (reps: number, weight: number) => {
+        updatePRExerciseSession(currentExercise);
+        updateExerciseLoad(currentExercise);
+
+        if (todayWorkout && currentExercise < todayWorkout.exercises.length - 1) {
+            setCurrentExercise(currentExercise + 1);
+        } else {
+            updateWokoutLoad();
+            setCurrentScreen('feedback');
+        }
+    };
+
+    // Gera as séries de forma estável
+    const seriesElements = useMemo(() => {
+        if (!exercise || !exercise.series) return [];
+
+        return Array.from({ length: exercise.series }, (_, index) => (
+            <div className="flex justify-around items-center mb-4" key={index}>
+                <div className="text-center">
+                    <label htmlFor={`reps-${index}`} className="text-gray-400 text-sm block mb-1">
+                        Repetições
+                    </label>
+                    <input
+                        id={`reps-${index}`}
+                        type="number"
+                        value={currentReps}
+                        onChange={(e) => updateExerciseSet(index, currentExercise, Number(e.target.value))}
+                        className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
+                    />
+                </div>
+
+                <div className="text-center">
+                    <label htmlFor={`weight-${index}`} className="text-gray-400 text-sm block mb-1">
+                        Peso (kg)
+                    </label>
+                    <input
+                        id={`weight-${index}`}
+                        type="number"
+                        value={currentWeight}
+                        onChange={(e) => updateExerciseSet(index, currentExercise, undefined, Number(e.target.value))}
+                        className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
+                    />
+                </div>
+            </div>
+        ));
+    }, [exercise, currentReps, currentWeight]);
+
+    if (!exercise) {
+        return (
+            <div className="text-white p-10 text-center">
+                <h2 className="text-2xl font-bold">Erro ao carregar exercício</h2>
+                <p className="text-gray-400 mt-4">Nenhum exercício encontrado.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col">
@@ -81,17 +108,20 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                         onClick={() => {
                             if (window.confirm('Tem certeza que deseja sair do treino?')) {
                                 setCurrentScreen('home');
-                                setWorkoutInProgress(false);
                             }
                         }}
                         className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center"
                     >
                         <X className="w-6 h-6" />
                     </button>
+
                     <div className="text-center">
                         <div className="text-sm text-gray-400">Exercício</div>
-                        <div className="text-xl font-bold">{currentExercise + 1}/{todayWorkout.exercises.length}</div>
+                        <div className="text-xl font-bold">
+                            {currentExercise + 1}/{todayWorkout.exercises.length}
+                        </div>
                     </div>
+
                     <div className="w-10 h-10" />
                 </div>
 
@@ -112,7 +142,6 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                                 height="200"
                                 src={exercise.video}
                                 title="YouTube video player"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                 allowFullScreen
                                 className="absolute top-0 left-0 w-full h-full object-cover"
                             ></iframe>
@@ -133,42 +162,16 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                     </div>
                 </div>
 
-                {/* <div className="bg-white/5 backdrop-blur rounded-3xl p-8 mb-6">
-          <div className="text-center">
-            <div className="text-6xl font-bold mb-2">{timer}s</div>
-            <div className="text-gray-400">Tempo restante</div>
-          </div>
-        </div> */}
-
                 <div className="bg-white/5 backdrop-blur rounded-3xl py-6 mb-6">
-                    {getSeries()}
-                    {/* {exercise.series.map((set) => (
-                        <div className="flex justify-around items-center mb-4" key={set.set}>
-                            <div className="text-center">
-                                <label htmlFor={`reps-${set.set}`} className="text-gray-400 text-sm block mb-1">Repetições</label>
-                                <input
-                                    id={`reps-${set.set}`}
-                                    type="number"
-                                    value={currentReps}
-                                    onChange={(e) => setCurrentReps(Number(e.target.value))}
-                                    className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
-                                />
-                            </div>
-                            <div className="text-center">
-                                <label htmlFor={`weight-${set.set}`} className="text-gray-400 text-sm block mb-1">Peso (kg)</label>
-                                <input
-                                    id={`weight-${set.set}`}
-                                    type="number"
-                                    value={currentWeight}
-                                    onChange={(e) => setCurrentWeight(Number(e.target.value))}
-                                    className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
-                                />
-                            </div>
-                        </div>
-                    ))} */}
+
+                    {/* Series */}
+                    {seriesElements}
+
+                    {/* PR */}
                     {exercise.prReps !== undefined && exercise.prWeight !== undefined && (
                         <div className="text-center text-gray-400 text-sm">
-                            PR Anterior: {exercise.prReps} reps @ {exercise.prWeight} kg ({exercise.prDate || 'N/A'})
+                            PR Anterior: {exercise.prReps} reps @ {exercise.prWeight} kg (
+                            {exercise.prDate || 'N/A'})
                         </div>
                     )}
                 </div>
@@ -181,11 +184,14 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                         {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
                         {isPaused ? 'Continuar' : 'Pausar'}
                     </button>
+
                     <button
                         onClick={() => nextExercise(currentReps, currentWeight)}
                         className="flex-1 py-4 bg-gradient-to-r from-rose-400 to-purple-400 rounded-2xl font-bold flex items-center justify-center gap-2"
                     >
-                        {currentExercise < todayWorkout.exercises.length - 1 ? 'Próximo' : 'Finalizar'}
+                        {currentExercise < todayWorkout.exercises.length - 1
+                            ? 'Próximo'
+                            : 'Finalizar'}
                         <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>

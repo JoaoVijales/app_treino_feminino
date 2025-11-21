@@ -3,6 +3,7 @@ import { ChevronLeft, Check, Home, Calendar, BarChart3, Settings, Zap, Moon } fr
 import { useFlowFit } from '../context/FlowFitContext';
 import { getWorkoutById, getUserWorkoutExerciseSessions, getUserWorkoutExerciseSets, getExerciseById } from '../utils/api';
 import { UserWorkoutExerciseSessions, UserWorkoutExerciseSets } from '../types/supabase';
+import { Session } from '@supabase/supabase-js';
 
 interface HistoryScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -22,7 +23,7 @@ interface ExerciseDetails {
 }
 
 const HistoryScreen: React.FC<HistoryScreenProps> = ({ setCurrentScreen }) => {
-  const { workoutHistory } = useFlowFit();
+  const { workoutHistory, userProfile } = useFlowFit();
   const [detailedHistory, setDetailedHistory] = useState<DetailedWorkoutHistory[]>([]);
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
   const [workoutDetails, setWorkoutDetails] = useState<Record<string, ExerciseDetails[]>>({});

@@ -16,7 +16,7 @@ create table if not exists users (
 -- ===========================
 create table if not exists user_profiles (
     id uuid primary key default uuid_generate_v4(),
-    user_id text not null references users(id) on delete cascade,
+    user_id uuid not null references auth.users(id) on delete cascade,
     age integer,
     name TEXT NOT NULL,
     goal TEXT,                      

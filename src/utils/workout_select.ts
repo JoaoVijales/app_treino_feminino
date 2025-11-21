@@ -8,13 +8,14 @@ export async function selectWorkoutPlan(
 ): Promise<Workout | null> {
   try {
     const workoutsPhase = await api.getWorkoutByPhase(phase, equipment || 'none');
+    console.log("Workouts encontrados para", phase, equipment, ":", workoutsPhase); 
 
     if (!workoutsPhase || workoutsPhase.length === 0) {
       console.warn("Nenhum treino encontrado para:", phase, equipment);
       return null;
     }
 
-    const lastWorkoutIds = await api.getUserWorkoutSessionlasted(userId);
+    const lastWorkoutIds = await api.getUserWorkoutSessionlasted();
 
     // 1º treino que ainda não foi feito
     for (const workout of workoutsPhase) {

@@ -4,13 +4,14 @@ import { useFlowFit } from '../context/FlowFitContext';
 import { updateUserProfile } from '../utils/api';
 import { UserProfile } from '../types/supabase';
 import { supabase } from '../utils/supabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 interface SettingsScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ setCurrentScreen }) => {
-  const { userProfile } = useFlowFit();
+  const { userProfile, session } = useFlowFit(); // Include session in destructuring
   const [localProfile, setLocalProfile] = useState<Partial<UserProfile>>({});
   const [message, setMessage] = useState('');
 
@@ -34,7 +35,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ setCurrentScreen }) => 
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setCurrentScreen('login');
+    // No need to setCurrentScreen('login') here, FlowFitApp will handle navigation based on session change
   };
 
   const handleInputChange = (field: keyof UserProfile, value: any) => {

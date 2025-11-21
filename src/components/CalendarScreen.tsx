@@ -1,24 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Calendar, X, Home, BarChart3, Settings, ChevronRight, Droplet, Zap, Sun, Moon } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
 import { addMenstrualCycle } from '../utils/api';
 import { CyclePhases } from '../types';
 import { getCyclePhase } from '../utils/cycle_phase';
+import { Session } from '@supabase/supabase-js';
 
 interface CalendarScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
 const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => {
-  const { userData, menstrualCycles, userProfile, loading } = useFlowFit();
+  const { userData, menstrualCycles, userProfile, loading, refetchFlowFitData, session } = useFlowFit();
   const [date, setDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
+  useEffect(() => {
+    console.log("CalendarScreen - menstrualCycles:", menstrualCycles);
+    console.log("CalendarScreen - userData:", userData);
+  }, [menstrualCycles, userData]);
+
   const cyclePhases: CyclePhases = {
     menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸' },
-    folicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
-    ovulatoria: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
-    lutea: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
+    follicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
+    ovulatory: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
+    luteal: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
   };
 
   const getDaysInMonth = (year: number, month: number) => {
@@ -37,11 +43,26 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-  const getDayPhaseForDate = (day: number) => {
-    const dateForPhase = new Date(currentYear, currentMonth, day);
-    // This logic should be improved to find the most recent cycle start date
-    const lastPeriodDate = menstrualCycles.length > 0 ? new Date(menstrualCycles[0].start_date_log) : new Date(userData.lastPeriod);
-    return getCyclePhase(lastPeriodDate, 28);
+  const getDayPhaseForDate = (targetDate: Date) => {
+    // Encontrar o ciclo menstrual mais recente que precede ou inclui a targetDate
+    const relevantCycle = menstrualCycles
+      .filter(cycle => new Date(cycle.start_date_log) <= targetDate)
+      .sort((a, b) => new Date(b.start_date_log).getTime() - new Date(a.start_date_log).getTime())
+      [0]; // Pega o mais recente
+
+    let cycleStartDate: Date;
+    if (relevantCycle) {
+      cycleStartDate = new Date(relevantCycle.start_date_log);
+    } else if (userData.lastPeriod) {
+      // Fallback para lastPeriod se nenhum ciclo relevante for encontrado
+      cycleStartDate = new Date(userData.lastPeriod);
+    } else {
+      // Se não há dados de ciclo ou lastPeriod, retorna uma fase padrão ou lança um erro
+      return 'menstrual'; // ou alguma fase padrão
+    }
+
+    // A duração do ciclo deve ser dinâmica, mas por enquanto usamos 28
+    return getCyclePhase(cycleStartDate, 28, targetDate);
   };
 
   const isPeriodDay = (day: number) => {
@@ -60,16 +81,16 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
   };
 
   const handleAddPeriod = async () => {
-    if (userProfile) {
+    // Use the userId directly from the context
+    if (session?.user?.id) {
       const today = new Date();
       const newCycle = {
-        user_id: userProfile.user_id,
+        user_id: session.user.id,
         start_date_log: today.toISOString().split('T')[0],
       };
       await addMenstrualCycle(newCycle);
-      // Ideally, we should refetch the menstrual cycles data here.
-      // For now, we can give a visual feedback.
-      alert("Seu novo ciclo foi marcado para hoje!");
+      await refetchFlowFitData(); // Refetch data to update the calendar
+      setSelectedDate(null); // Clear selected date
     }
   };
 
@@ -80,7 +101,8 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
 
   for (let day = 1; day <= daysInMonth; day++) {
     const isToday = day === new Date().getDate() && currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear();
-    const phase = getDayPhaseForDate(day);
+    const currentDayDate = new Date(currentYear, currentMonth, day);
+    const phase = getDayPhaseForDate(currentDayDate);
     const hasPeriod = isPeriodDay(day);
 
     days.push(
@@ -101,9 +123,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
           {day}
         </span>
         <div className="flex gap-0.5 mt-1">
-          {hasPeriod && (
-            <div className={`w-1.5 h-1.5 rounded-full bg-${cyclePhases[phase].color}-400`} />
-          )}
+          <div className={`w-1.5 h-1.5 rounded-full bg-${cyclePhases[phase].color}-400`} />
         </div>
       </button>
     );
@@ -125,6 +145,37 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
     });
   };
   
+
+  const calculateNextPeriod = () => {
+    let lastPeriodStart: Date;
+
+    if (menstrualCycles.length > 0) {
+      const sortedCycles = [...menstrualCycles].sort((a, b) => new Date(b.start_date_log).getTime() - new Date(a.start_date_log).getTime());
+      lastPeriodStart = new Date(sortedCycles[0].start_date_log);
+    } else if (userData.lastPeriod) {
+      lastPeriodStart = new Date(userData.lastPeriod);
+    } else {
+      return { date: null, daysUntil: null };
+    }
+
+    // Assuming an average cycle length of 28 days for prediction for now
+    const averageCycleLength = 28;
+
+    const nextPeriodDate = new Date(lastPeriodStart);
+    nextPeriodDate.setDate(lastPeriodStart.getDate() + averageCycleLength);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time for accurate day difference
+
+    const daysUntil = Math.ceil((nextPeriodDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    return { date: nextPeriodDate, daysUntil };
+  };
+
+  const { date: nextPeriodDate, daysUntil } = calculateNextPeriod();
+
+  const formattedNextPeriodDate = nextPeriodDate ? nextPeriodDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'N/A';
+  const displayDaysUntil = daysUntil !== null && daysUntil > 0 ? `Em aproximadamente ${daysUntil} dias` : 'Calculando...';
 
   if (loading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p>Carregando...</p></div>;
@@ -227,7 +278,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
               </button>
             </div>
             <div className="space-y-2 text-sm text-gray-700">
-              <p><strong>Fase:</strong> {cyclePhases[getDayPhaseForDate(selectedDate)].name}</p>
+              <p><strong>Fase:</strong> {cyclePhases[getDayPhaseForDate(new Date(currentYear, currentMonth, selectedDate))].name}</p>
               <p><strong>Status:</strong> {isPeriodDay(selectedDate) ? 'Menstruação' : 'Normal'}</p>
             </div>
             {!isPeriodDay(selectedDate) && (
@@ -245,8 +296,8 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
               <Calendar className="w-8 h-8 text-rose-500" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-800">25 de Nov</div>
-              <div className="text-sm text-gray-600">Em aproximadamente 18 dias</div>
+              <div className="text-2xl font-bold text-gray-800">{formattedNextPeriodDate}</div>
+              <div className="text-sm text-gray-600">{displayDaysUntil}</div>
             </div>
           </div>
           <div className="mt-4 p-4 bg-gray-50 rounded-xl">

@@ -2,10 +2,11 @@ import { useFlowFit } from "../context/FlowFitContext";
 import { useEffect, useState } from "react";
 import { FullWorkoutSession, UserWorkoutRecord, UserExerciseRecord } from "../types/supabase";
 import { getUserWorkoutSessions, getUserWorkoutRecords, getUserExerciseRecords, getUserWorkoutExerciseSessions,  addUserWorkoutSession, addUserWorkoutExerciseSessions, addUserWorkoutExerciseSets} from "../utils/api";
+import { Session } from "@supabase/supabase-js";
 
 export const useWorkoutSession = () => {
 
-    const { userProfile, todayWorkoutState, userData } = useFlowFit();
+    const { userProfile, todayWorkoutState, userData, session } = useFlowFit();
     const [workoutSession, setWorkoutSession] = useState<FullWorkoutSession>({
         workoutSession: {} as unknown as FullWorkoutSession['workoutSession'],
         exerciseSessions: [
@@ -19,24 +20,25 @@ export const useWorkoutSession = () => {
     const [exerciseRecords, setExerciseRecords] = useState<UserExerciseRecord>();   
 
     const submitWorkoutSession = async () => {
+    if (!session?.user?.id) return;
     // Implement submission logic here
-    await addUserWorkoutSession(workoutSession.workoutSession)
-    await addUserWorkoutExerciseSessions(workoutSession.exerciseSessions.map(exSession => exSession.exercise))
-    await addUserWorkoutExerciseSets(workoutSession.exerciseSessions.flatMap(exSession => exSession.sets || []))
+    await addUserWorkoutSession({ ...workoutSession.workoutSession, user_id: session.user.id });
+    await addUserWorkoutExerciseSessions(workoutSession.exerciseSessions.map(exSession => ({ ...exSession.exercise, user_id: session.user.id })));
+    await addUserWorkoutExerciseSets(workoutSession.exerciseSessions.flatMap(exSession => exSession.sets || []).map(set => ({ ...set, user_id: session.user.id })));
 }
 
 
 
     const updatePRworkoutSession = async () => {
-        if (!userProfile?.id) return;
+        if (!session?.user?.id || !userProfile?.id) return;
         if (!workoutSession.workoutSession.load_workout_total) return;
 
-        const workoutRecordsListAll = await getUserWorkoutRecords(userProfile.id);
+        const workoutRecordsListAll = await getUserWorkoutRecords();
         const workoutRecordsList = workoutRecordsListAll?.filter(record => record.workout_id === todayWorkoutState?.id);
         const workoutRecords = workoutRecordsList && workoutRecordsList.length > 0 ? workoutRecordsList[0] : null;
         if (!workoutRecords) {
-            const history = await getUserWorkoutSessions(userProfile?.user_id);
-            const todayWorkoutHistory = history?.filter(session => session.workout_id === todayWorkoutState?.id);
+            const history = await getUserWorkoutSessions();
+            const todayWorkoutHistory = history?.filter(item => item.workout_id === todayWorkoutState?.id);
 
             if (todayWorkoutHistory && todayWorkoutHistory.length > 0) {
                 todayWorkoutHistory.sort((a, b) => (b.load_workout_total || 0) - (a.load_workout_total || 0))
@@ -46,7 +48,7 @@ export const useWorkoutSession = () => {
 
                 if (bestSession.load_workout_total > workoutSession.workoutSession.load_workout_total) {
                     setWorkoutRecords(() => ({
-                        user_id: bestSession.user_id,
+                        user_id: session.user.id,
                         workout_id: bestSession.workout_id || '',
                         record_load: bestSession.load_workout_total,
                         record_date: bestSession.session_date,
@@ -54,7 +56,7 @@ export const useWorkoutSession = () => {
                     }));
                 } else {
                     setWorkoutRecords(() => ({
-                        user_id: workoutSession.workoutSession.user_id,
+                        user_id: session.user.id,
                         workout_id: workoutSession.workoutSession.workout_id || '',
                         record_load: workoutSession.workoutSession.load_workout_total,
                         record_date: workoutSession.workoutSession.session_date,
@@ -64,7 +66,7 @@ export const useWorkoutSession = () => {
 
             } else {
                 setWorkoutRecords(() => ({
-                    user_id: workoutSession.workoutSession.user_id,
+                    user_id: session.user.id,
                     workout_id: workoutSession.workoutSession.workout_id || '',
                     record_load: workoutSession.workoutSession.load_workout_total,
                     record_date: workoutSession.workoutSession.session_date,
@@ -75,7 +77,7 @@ export const useWorkoutSession = () => {
         } else {
             if (workoutRecords.record_load && workoutRecords.record_load < workoutSession.workoutSession.load_workout_total) {
                 setWorkoutRecords(() => ({
-                    user_id: workoutSession.workoutSession.user_id,
+                    user_id: session.user.id,
                     workout_id: workoutSession.workoutSession.workout_id || '',
                     record_load: workoutSession.workoutSession.load_workout_total,
                     record_date: workoutSession.workoutSession.session_date,
@@ -97,20 +99,20 @@ export const useWorkoutSession = () => {
 
     const updatePRExerciseSession = async (currentExercise: number) => {
         // Lógica para atualizar PRs (Personal Records) pode ser implementada aqui
-        if (!userProfile?.id) return;
+        if (!session?.user?.id || !userProfile?.id) return;
 
         const exercise = workoutSession.exerciseSessions[currentExercise];
         if (!exercise) return;
 
         // pegar ultimo recorde do usuário para o exercício atual
-        const exerciseRecordsListAll = await getUserExerciseRecords(userProfile.id);
+        const exerciseRecordsListAll = await getUserExerciseRecords();
         const exerciseRecordsList = exerciseRecordsListAll?.filter(record => record.exercise_id === exercise.exercise.exercise_session_id);
         const exerciseRecords = exerciseRecordsList && exerciseRecordsList.length > 0 ? exerciseRecordsList[0] : null;
 
         if (!exerciseRecords) {
-            const history = await getUserWorkoutExerciseSessions(userProfile?.user_id);
-            const exerciseHistory = history?.flatMap(session =>
-                session.exercise_session_id === exercise.exercise.exercise_session_id ? [session] : []
+            const history = await getUserWorkoutExerciseSessions( exercise.exercise.exercise_session_id);
+            const exerciseHistory = history?.flatMap(item =>
+                item.exercise_session_id === exercise.exercise.exercise_session_id ? [item] : []
             );
 
             if (exerciseHistory && exerciseHistory.length > 0) {
@@ -122,7 +124,7 @@ export const useWorkoutSession = () => {
 
                 if (bestExerciseSession.load_exercise_session > exercise.exercise.load_exercise_session) {
                     setExerciseRecords(() => ({
-                        user_id: workoutSession.workoutSession.user_id,
+                        user_id: session.user.id,
                         workout_id: workoutSession.workoutSession.workout_id || '',
                         exercise_id: bestExerciseSession.exercise_session_id,
                         record_load: bestExerciseSession.load_exercise_session,
@@ -133,7 +135,7 @@ export const useWorkoutSession = () => {
 
             } else {
                 setExerciseRecords(() => ({
-                    user_id: workoutSession.workoutSession.user_id,
+                    user_id: session.user.id,
                     workout_id: workoutSession.workoutSession.workout_id || '',
                     exercise_id: exercise.exercise.exercise_session_id,
                     record_load: exercise.exercise.load_exercise_session,
@@ -144,7 +146,7 @@ export const useWorkoutSession = () => {
         } else {
             if (exerciseRecords.record_load && exerciseRecords.record_load < exercise.exercise.load_exercise_session!) {
                 setExerciseRecords(() => ({
-                    user_id: workoutSession.workoutSession.user_id,
+                    user_id: session.user.id,
                     workout_id: workoutSession.workoutSession.workout_id || '',
                     exercise_id: exercise.exercise.exercise_session_id,
                     record_load: exercise.exercise.load_exercise_session,
@@ -163,6 +165,7 @@ export const useWorkoutSession = () => {
             }
         }
     }
+
 
     const updateWokoutFeedBack = (
         intensity_rating: number | null,
@@ -224,7 +227,7 @@ export const useWorkoutSession = () => {
 
     const updateExerciseSet = (set: number, currentExercise: number, reps?: number, weight?: number,) => {
 
-        if (!todayWorkoutState || !userProfile) return;
+        if (!todayWorkoutState || !userProfile || !session?.user?.id) return;
 
         setWorkoutSession((prevSession) => {
             const updatedExerciseSessions = [...prevSession.exerciseSessions];
@@ -232,7 +235,7 @@ export const useWorkoutSession = () => {
             if (!currentExSession.sets) return prevSession;
             if (reps) {
                 currentExSession.sets[set] = {
-                    id: userProfile.user_id + "-" + todayWorkoutState?.exercises[currentExercise].id + "-" + new Date().toISOString() + "-set-" + set, // Gerar ou obter ID conforme necessário
+                    id: session.user.id + "-" + todayWorkoutState?.exercises[currentExercise].id + "-" + new Date().toISOString() + "-set-" + set, // Gerar ou obter ID conforme necessário
                     exercise_session_id: currentExSession.exercise.id,
                     load_set: reps * (currentExSession.sets[set]?.weight_done || 0),
                     weight_done: currentExSession.sets[set]?.weight_done || 0,
@@ -242,7 +245,7 @@ export const useWorkoutSession = () => {
                 };
             } else if (weight) {
                 currentExSession.sets[set] = {
-                    id: userProfile.user_id + "-" + todayWorkoutState?.exercises[currentExercise].id + "-" + new Date().toISOString() + "-set-" + set, // Gerar ou obter ID conforme necessário
+                    id: session.user.id + "-" + todayWorkoutState?.exercises[currentExercise].id + "-" + new Date().toISOString() + "-set-" + set, // Gerar ou obter ID conforme necessário
                     exercise_session_id: currentExSession.exercise.id,
                     load_set: weight * (currentExSession.sets[set]?.reps_done || 0),
                     weight_done: weight,
@@ -265,13 +268,13 @@ export const useWorkoutSession = () => {
         if (!todayWorkoutState || !todayWorkoutState.id) return;
 
         try {
-            if (!userProfile || !userData.currentPhase) return;
+            if (!userProfile || !userData.currentPhase || !session?.user?.id) return;
 
             setWorkoutSession((prevState) => {
                 prevState = {
                     workoutSession: {
-                        id: userProfile.user_id + "-" + todayWorkoutState.id + "-" + new Date().toISOString(), // Gerar ou obter ID conforme necessário
-                        user_id: 'user-id-placeholder', // Substitua conforme necessário
+                        id: session.user.id + "-" + todayWorkoutState.id + "-" + new Date().toISOString(), // Gerar ou obter ID conforme necessário
+                        user_id: session.user.id, // Substitua conforme necessário
                         workout_id: todayWorkoutState.id,
                         session_date: new Date().toISOString(),
                         duration: prevState.workoutSession.duration || null,
@@ -284,7 +287,7 @@ export const useWorkoutSession = () => {
                     },
                     exerciseSessions: todayWorkoutState.exercises.map((exercise) => ({
                         exercise: {
-                            id: userProfile.user_id + "-" + exercise.id + "-" + new Date().toISOString(), // Gerar ou obter ID conforme necessário
+                            id: session.user.id + "-" + exercise.id + "-" + new Date().toISOString(), // Gerar ou obter ID conforme necessário
                             session_id: todayWorkoutState.id,
                             exercise_session_id: exercise.id,
                             load_exercise_session: prevState.exerciseSessions.find(es => es.exercise.exercise_session_id === exercise.id)?.exercise.load_exercise_session || null,

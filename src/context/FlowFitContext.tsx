@@ -2,8 +2,10 @@ import React, { createContext, useContext } from 'react';
 import { useFlowFitData } from '../hooks/useFlowFitData';
 import { UserData, TodayWorkout } from '../types';
 import { UserProfile, UserWorkoutSession, MenstrualCycle } from '../types/supabase';
+import { Session } from '@supabase/supabase-js';
 
 interface FlowFitContextType {
+  session: Session | null;
   userData: UserData;
   todayWorkoutState: TodayWorkout | null;
   loading: boolean;
@@ -11,6 +13,7 @@ interface FlowFitContextType {
   workoutHistory: UserWorkoutSession[];
   menstrualCycles: MenstrualCycle[];
   setUserData: React.Dispatch<React.SetStateAction<UserData>>;
+  refetchFlowFitData: () => Promise<void>;
 }
 
 const FlowFitContext = createContext<FlowFitContextType | undefined>(undefined);

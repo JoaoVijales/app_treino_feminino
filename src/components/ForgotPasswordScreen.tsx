@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AuthScreen from './AuthScreen';
+import { supabase } from '../utils/supabaseClient'; // Import supabase
 
 interface ForgotPasswordScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -7,11 +8,26 @@ interface ForgotPasswordScreenProps {
 
 const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ setCurrentScreen }) => {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const handleResetPassword = () => {
-    // For now, just navigate to login screen
-    //console.log('Password reset attempt for:', email);
-    setCurrentScreen('login');
+  const handleResetPassword = async () => {
+    setLoading(true);
+    setError(null); // Clear previous errors
+    setMessage(null); // Clear previous messages
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'http://localhost:3000/reset-password', // TODO: Replace with your actual reset password URL
+    });
+
+    if (error) {
+      setError(error.message);
+      console.error('Error resetting password:', error.message);
+    } else {
+      setMessage('Verifique seu e-mail para o link de redefinição de senha!');
+    }
+    setLoading(false);
   };
 
   return (
@@ -25,10 +41,13 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ setCurrentS
       />
       <button
         onClick={handleResetPassword}
+        disabled={loading}
         className="w-full px-6 py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all"
       >
-        Redefinir Senha
+        {loading ? 'Enviando...' : 'Redefinir Senha'}
       </button>
+      {error && <p className="text-red-500 text-center mt-2">{error}</p>}
+      {message && <p className="text-green-500 text-center mt-2">{message}</p>}
     </AuthScreen>
   );
 };

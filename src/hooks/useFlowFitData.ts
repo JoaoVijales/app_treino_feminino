@@ -4,8 +4,11 @@ import { UserProfile, Workout, UserWorkoutSession, MenstrualCycle } from '../typ
 import { getUserProfile, getWorkouts, getUserWorkoutSessions, getWorkoutDetails, getMenstrualCycles, getWorkouExercises } from '../utils/api';
 import { differenceInDays, getCyclePhase } from '../utils/cycle_phase';
 import { selectWorkoutPlan } from '../utils/workout_select';
+import { Session } from '@supabase/supabase-js';
+import { supabase } from '../utils/supabaseClient';
 
 export const useFlowFitData = () => {
+  const [session, setSession] = useState<Session | null>(null);
   const [userData, setUserData] = useState<UserData>({
     name: '',
     goal: '',
@@ -21,33 +24,50 @@ export const useFlowFitData = () => {
   const [workoutHistory, setWorkoutHistory] = useState<UserWorkoutSession[]>([]);
   const [menstrualCycles, setMenstrualCycles] = useState<MenstrualCycle[]>([]);
   
-const userId = 'test_user_001';
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setLoading(false)
+    })
 
-useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoading(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session)
+      }
+    )
 
-      const profile = await getUserProfile(userId);
-      setUserProfile(profile);
+    return () => subscription.unsubscribe()
+  }, [])
+  
+  const refetchFlowFitData = async () => {
+    if (!session) return; // Only fetch data if a session exists
+    setLoading(true);
 
-      const history = await getUserWorkoutSessions(userId);
-      if (history) setWorkoutHistory(history);
+    const profile = await getUserProfile(session);
+    setUserProfile(profile);
 
-      const cycles = await getMenstrualCycles(userId);
-      if (cycles) setMenstrualCycles(cycles);
+    const history = await getUserWorkoutSessions();
+    if (history) setWorkoutHistory(history);
 
-      setLoading(false);
-    };
+    const cycles = await getMenstrualCycles();
+    if (cycles) setMenstrualCycles(cycles);
 
-    fetchInitialData();
-  }, []);
+    setLoading(false);
+  };
+  
+  // Fetch data when session changes
+  useEffect(() => {
+    if (session) {
+      refetchFlowFitData();
+    }
+  }, [session]);
 
   // -----------------------------------------------------
   // 2️⃣ Segundo efeito: roda SOMENTE depois que userProfile existir
   // -----------------------------------------------------
   useEffect(() => {
     const processUserProfile = async () => {
-      if (!userProfile) return;  // evita execução precoce
+      if (!userProfile || !session) return;  // evita execução precoce se não houver userProfile ou session
       if (!userProfile.last_period) return;
 
       // 2.1 Calcular ciclo
@@ -79,7 +99,7 @@ useEffect(() => {
 
       const Workout = await selectWorkoutPlan(
         phase || '',
-        userId,
+        session.user.id, // Use session.user.id here
         primaryEquipment
       );
 
@@ -111,11 +131,11 @@ useEffect(() => {
     };
 
     processUserProfile();
-  }, [userProfile]); // 🔥 dispara apenas quando userProfile vem do supabase
+  }, [userProfile, session]); // 🔥 dispara apenas quando userProfile ou session vem do supabase
 
   useEffect(() => {
-      console.log('todayWorkoutState updated:', todayWorkoutState);
-    }, [todayWorkoutState]);
+      console.log('Session:', session?.user.id);
+    }, [session]);
 
-  return { userData, todayWorkoutState, loading, userProfile, workoutHistory, menstrualCycles, setUserData };
+  return { session, userData, todayWorkoutState, loading, userProfile, workoutHistory, menstrualCycles, setUserData, refetchFlowFitData, userId: session?.user?.id };
 };

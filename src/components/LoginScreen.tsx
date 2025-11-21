@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AuthScreen from './AuthScreen';
+import { supabase } from '../utils/supabaseClient'; // Import supabase
 
 interface LoginScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -8,11 +9,24 @@ interface LoginScreenProps {
 const LoginScreen: React.FC<LoginScreenProps> = ({ setCurrentScreen }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = () => {
-    // For now, just navigate to home screen
-    //console.log('Login attempt:', { email, password });
-    setCurrentScreen('home');
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null); // Clear previous errors
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      console.error('Error logging in:', error.message);
+    }
+    // No direct navigation needed here. App.tsx will handle based on session state.
+    setLoading(false);
   };
 
   return (
@@ -33,10 +47,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ setCurrentScreen }) => {
       />
       <button
         onClick={handleLogin}
+        disabled={loading} // Disable button while loading
         className="w-full px-6 py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all"
       >
-        Entrar
+        {loading ? 'Entrando...' : 'Entrar'}
       </button>
+      {error && <p className="text-red-500 text-center mt-2">{error}</p>}
       <button
         onClick={() => console.log('Login with Google clicked')}
         className="w-full px-6 py-4 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all mt-3 flex items-center justify-center gap-2"

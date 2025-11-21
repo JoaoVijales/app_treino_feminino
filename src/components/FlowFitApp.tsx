@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Droplet, Zap, Sun, Moon } from 'lucide-react';
 import FeedbackScreen from './FeedbackScreen';
 import CalendarScreen from './CalendarScreen';
@@ -13,16 +13,57 @@ import ForgotPasswordScreen from './ForgotPasswordScreen';
 import { UserData, CyclePhases, TodayWorkout, WeekProgressItem, OnboardingScreenConfig } from '../types';
 import { FlowFitProvider, useFlowFit } from '../context/FlowFitContext';
 import { updateUserProfile, addUserWorkoutSession } from '../utils/api';
+import { supabase } from '../utils/supabaseClient'; // Import supabase
+import { Session } from '@supabase/supabase-js';
 
 const AppContent = () => {
-  const { userData, todayWorkoutState, loading, setUserData, userProfile } = useFlowFit();
-  const [currentScreen, setCurrentScreen] = useState('login');
+  const { userData, todayWorkoutState, loading, setUserData, userProfile, session } = useFlowFit();
+  const [currentScreen, setCurrentScreen] = useState('loading'); // Initial state set to loading
   const [onboardingStep, setOnboardingStep] = useState(0);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentExercise, setCurrentExercise] = useState(0);
   const [timer, setTimer] = useState(45);
   const [isPaused, setIsPaused] = useState(false);
+  const [showEmailVerificationBanner, setShowEmailVerificationBanner] = useState(false);
 
+
+  useEffect(() => {
+    if (!loading) { // Once initial data loading from useFlowFit is complete
+      if (session) {
+        // If there's a session and userProfile is loaded, check onboarding status
+        if (!session.user.email_confirmed_at) {
+          setShowEmailVerificationBanner(true);
+        } else {
+          setShowEmailVerificationBanner(false);
+        }
+
+        if (userProfile && userProfile.onboarding_completed) {
+          setCurrentScreen('home');
+        } else {
+          // If session exists but onboarding not complete, go to onboarding
+          setCurrentScreen('onboarding');
+        }
+      } else {
+        // No session, go to login
+        setCurrentScreen('login');
+      }
+    }
+  }, [session, loading, userProfile]);
+
+  const handleResendVerificationEmail = async () => {
+    if (session?.user?.email) {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: session.user.email,
+      });
+
+      if (error) {
+        alert(`Erro ao reenviar e-mail de verificação: ${error.message}`);
+      } else {
+        alert('E-mail de verificação reenviado! Por favor, verifique sua caixa de entrada.');
+      }
+    }
+  };
 
   const cyclePhases: CyclePhases = {
     menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸' },
@@ -67,10 +108,10 @@ const AppContent = () => {
       field: 'equipment',
       type: 'multiple',
       options: [
-        { value: 'peso-corporal', label: 'Só peso corporal', icon: '🏃‍♀️' },
-        { value: 'halteres', label: 'Halteres', icon: '🏋️‍♀️' },
-        { value: 'faixas', label: 'Faixas elásticas', icon: '🎗️' },
-        { value: 'academia', label: 'Academia completa', icon: '🏢' }
+        { value: 'none', label: 'Só peso corporal', icon: '🏃‍♀️' },
+        // { value: 'dumbbell', label: 'Halteres', icon: '🏋️‍♀️' },
+        { value: 'elastic', label: 'Faixas elásticas', icon: '🎗️' },
+        { value: 'dumbbell', label: 'Academia completa', icon: '🏢' }
       ]
     },
     {
@@ -97,9 +138,21 @@ const AppContent = () => {
     if (onboardingStep < onboardingScreens.length - 1) {
       setOnboardingStep(onboardingStep + 1);
     } else {
-      const userId = 'test_user_001'; // Hardcoded user ID
-      await updateUserProfile(userId, { ...userData, onboarding_completed: true });
-      setCurrentScreen('home');
+      if (session?.user?.id) {
+        const profileUpdateData = {
+          name: userData.name,
+          goal: userData.goal,
+          equipment: userData.equipment, // Pass the array directly as Supabase expects TEXT[]
+          cycle_regular: userData.cycleRegular,
+          last_period: userData.lastPeriod,
+          onboarding_completed: true,
+        };
+        await updateUserProfile(session.user.id, profileUpdateData);
+        setCurrentScreen('home');
+      } else {
+        console.error("User not authenticated during onboarding completion.");
+        setCurrentScreen('login'); // Fallback to login if session somehow lost
+      }
     }
   };
 
@@ -117,16 +170,23 @@ const AppContent = () => {
 
   
 
-  if (loading && currentScreen === 'home') {
+  if (loading || currentScreen === 'loading') { // Show loading until auth state and user profile are determined
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p>Loading...</p>
+        <p>Carregando...</p>
       </div>
     );
   }
 
   return (
     <div>
+      {showEmailVerificationBanner && (
+        <div className="bg-yellow-400 text-white p-3 text-center text-sm flex items-center justify-between">
+          <span>Por favor, verifique seu e-mail para confirmar sua conta.</span>
+          <button onClick={handleResendVerificationEmail} className="underline font-bold ml-2">Reenviar</button>
+        </div>
+      )}
+
       {currentScreen === 'login' && (
         <LoginScreen setCurrentScreen={setCurrentScreen} />
       )}

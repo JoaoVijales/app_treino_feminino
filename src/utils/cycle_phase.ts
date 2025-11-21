@@ -1,6 +1,6 @@
 
-export function getCyclePhase(lastPeriodDate: Date, CYCLE_LENGTH: number): 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' {
-  const daysSince = differenceInDays(new Date(), new Date(lastPeriodDate));
+export function getCyclePhase(lastPeriodDate: Date, CYCLE_LENGTH: number, targetDate: Date = new Date()): 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' {
+  const daysSince = differenceInDays(targetDate, new Date(lastPeriodDate));
   const dayInCycle = daysSince % CYCLE_LENGTH;
 
   if (dayInCycle <= 5) return "menstrual";

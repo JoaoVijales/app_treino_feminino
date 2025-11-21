@@ -1,5 +1,5 @@
-import { supabase, withUserHeader } from './supabaseClient';
-import { PostgrestError } from '@supabase/supabase-js';
+import { supabase } from './supabaseClient';
+import { PostgrestError, Session } from '@supabase/supabase-js';
 import {
     UserProfile,
     MenstrualCycle,
@@ -14,27 +14,43 @@ import {
     UserWorkoutExerciseSets
 } from '../types/supabase';
 import { TodayWorkoutExercise } from '../types';
-
 // ===========================
 // USER PROFILES
 // ===========================
 
-export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
-    const client = withUserHeader(userId)
-    const { data, error } = await client
+export const getUserProfile = async (session: Session): Promise<UserProfile | null> => {
+    console.log("Fetched user ID:", session.user.id);
+    const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', session.user.id)
         .maybeSingle();
 
     if (error) {
         console.error('Error fetching user profile:', error);
         return null;
     }
+
+
     return data;
 };
 
+
 export const updateUserProfile = async (userId: string, profileData: Partial<UserProfile>): Promise<{ data: UserProfile | null, error: PostgrestError | null }> => {
+    const { data: existing } = await supabase
+        .from("user_profiles")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    if (!existing) {
+        const result = await supabase.from("user_profiles").insert({ user_id: userId, ...profileData });
+        if (result.error) {
+            console.error('Error creating user profile:', result.error);
+        }
+        return result;
+    }
+
     const result = await supabase
         .from('user_profiles')
         .update(profileData)
@@ -54,11 +70,10 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Use
 // MENSTRUAL CYCLES
 // ===========================
 
-export const getMenstrualCycles = async (userId: string): Promise<MenstrualCycle[] | null> => {
+export const getMenstrualCycles = async (): Promise<MenstrualCycle[] | null> => {
     const { data, error } = await supabase
         .from('menstrual_cycles')
         .select('*')
-        .eq('user_id', userId)
         .order('start_date_log', { ascending: false });
 
     if (error) {
@@ -253,11 +268,10 @@ export const getExerciseById = async (exerciseId: string): Promise<Exercise | nu
 // USER WORKOUT SESSIONS
 // ===========================
 
-export const getUserWorkoutSessions = async (userId: string): Promise<UserWorkoutSession[] | null> => {
+export const getUserWorkoutSessions = async (): Promise<UserWorkoutSession[] | null> => {
     const { data, error } = await supabase
         .from('user_workout_sessions')
         .select('*')
-        .eq('user_id', userId)
         .order('session_date', { ascending: false });
 
     if (error) {
@@ -268,21 +282,20 @@ export const getUserWorkoutSessions = async (userId: string): Promise<UserWorkou
     return data;
 };
 
-export const getUserWorkoutSessionlasted = async (userId: string): Promise<string[]> => {
-  const { data, error } = await supabase
-    .from('user_workout_sessions')
-    .select('workout_id')
-    .eq('user_id', userId)
-    .order('session_date', { ascending: false });
+export const getUserWorkoutSessionlasted = async (): Promise<string[]> => {
+    const { data, error } = await supabase
+        .from('user_workout_sessions')
+        .select('workout_id')
+        .order('session_date', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching workout sessions:', error);
-    return [];
-  }
+    if (error) {
+        console.error('Error fetching workout sessions:', error);
+        return [];
+    }
 
-  if (!data || data.length === 0) return [];
+    if (!data || data.length === 0) return [];
 
-  return data.map((session) => session.workout_id);
+    return data.map((session) => session.workout_id);
 };
 
 
@@ -302,41 +315,45 @@ export const addUserWorkoutSession = async (sessionData: UserWorkoutSession): Pr
     return data;
 };
 
-export const addUserWorkoutExerciseSessions = async (exerciseSessionData: UserWorkoutExerciseSessions[]): Promise<UserWorkoutExerciseSessions | null> => {
-    exerciseSessionData.forEach(async (exerciseSessionData) => {
-        const { data, error } = await supabase
+export const addUserWorkoutExerciseSessions = async (exerciseSessionsData: UserWorkoutExerciseSessions[]): Promise<UserWorkoutExerciseSessions[] | null> => {
+    const promises = exerciseSessionsData.map(sessionData =>
+        supabase
             .from('user_workout_exercise_sessions')
-            .insert([exerciseSessionData])
+            .insert([sessionData])
             .select()
-            .single();
+            .single()
+    );
 
-        if (error) {
-            console.error('Error adding user workout exercise session:', error);
-            return null;
-        }
+    const results = await Promise.all(promises);
+    const errors = results.filter(res => res.error);
 
-        return data;
-    });
-    return null;
-}
-
-export const addUserWorkoutExerciseSets = async (exerciseSetData: UserWorkoutExerciseSets[]): Promise<UserWorkoutExerciseSets | null> => {
-    exerciseSetData.forEach(async (exerciseSetData) => {
-    const { data, error } = await supabase
-        .from('user_workout_exercise_sets')
-        .insert([exerciseSetData])
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error adding user workout exercise set:', error);
+    if (errors.length > 0) {
+        errors.forEach(err => console.error('Error adding user workout exercise session:', err.error));
         return null;
     }
 
-    return data;
-});
-return null;
-}
+    return results.map(res => res.data);
+};
+
+export const addUserWorkoutExerciseSets = async (exerciseSetsData: UserWorkoutExerciseSets[]): Promise<UserWorkoutExerciseSets[] | null> => {
+    const promises = exerciseSetsData.map(setData =>
+        supabase
+            .from('user_workout_exercise_sets')
+            .insert([setData])
+            .select()
+            .single()
+    );
+
+    const results = await Promise.all(promises);
+    const errors = results.filter(res => res.error);
+
+    if (errors.length > 0) {
+        errors.forEach(err => console.error('Error adding user workout exercise set:', err.error));
+        return null;
+    }
+
+    return results.map(res => res.data);
+};
 
 
 export const getUserWorkoutExerciseSessions = async (sessionId: string): Promise<UserWorkoutExerciseSessions[] | null> => {
@@ -371,11 +388,10 @@ export const getUserWorkoutExerciseSets = async (userWorkoutExerciseSessionId: s
 // USER RECORDS
 // ===========================
 
-export const getUserWorkoutRecords = async (userId: string): Promise<UserWorkoutRecord[] | null>  => {
+export const getUserWorkoutRecords = async (): Promise<UserWorkoutRecord[] | null> => {
     const { data, error } = await supabase
         .from('user_workout_records')
-        .select('*')
-        .eq('user_id', userId);
+        .select('*');
 
     if (error) {
         console.error('Error fetching user workout records:', error);
@@ -421,11 +437,10 @@ export const updateUserWorkoutRecord = async (userId: string, workoutId: string,
 // USER EXERCISE RECORDS
 // ===========================
 
-export const getUserExerciseRecords = async (userId: string): Promise<UserExerciseRecord[] | null> => {
+export const getUserExerciseRecords = async (): Promise<UserExerciseRecord[] | null> => {
     const { data, error } = await supabase
         .from('user_exercise_records')
-        .select('*')
-        .eq('user_id', userId);
+        .select('*');
 
     if (error) {
         console.error('Error fetching user exercise records:', error);

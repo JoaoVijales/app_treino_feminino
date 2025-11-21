@@ -33,6 +33,7 @@ export interface TodayWorkoutExercise {
   prReps?: number;
   prWeight?: number;
   prDate?: string;
+  equipment?: string | null;
 }
 
 export interface TodayWorkout {

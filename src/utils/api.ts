@@ -19,7 +19,7 @@ import { TodayWorkoutExercise } from '../types';
 // ===========================
 
 export const getUserProfile = async (session: Session): Promise<UserProfile | null> => {
-    console.log("Fetched user ID:", session.user.id);
+    //console.log("Fetched user ID:", session.user.id);
     const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -174,7 +174,8 @@ export const getWorkoutDetails = async (workoutId: string): Promise<TodayWorkout
                 name: exercise?.name ?? null,
                 series: exc.series,
                 reps: exc.reps,
-                video: exercise?.video_url
+                video: exercise?.video_url,
+                equipment: exercise?.equipment,
             } as unknown as TodayWorkoutExercise;
 
             return entry;

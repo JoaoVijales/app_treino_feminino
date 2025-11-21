@@ -30,21 +30,9 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
     // Sempre seguro — não mutável
 
     const exercise = todayWorkout?.exercises?.[currentExercise];
-    const { updateExerciseSet, updatePRExerciseSession, updateExerciseLoad, updateWokoutLoad } = useWorkoutSession();
-    // States
-    const [currentReps, setCurrentReps] = useState<number>(exercise?.reps || 0);
-    const [currentWeight, setCurrentWeight] = useState<number>(exercise?.weight || 0);
+    const { workoutSession, updateExerciseSet, updatePRExerciseSession, updateExerciseLoad, updateWokoutLoad } = useWorkoutSession();
 
-
-    // Atualiza reps/weight quando troca de exercício
-    useEffect(() => {
-        if (exercise) {
-            setCurrentReps(exercise.reps || 0);
-            setCurrentWeight(exercise.weight || 0);
-        }
-    }, [exercise]);
-
-    const nextExercise = async (reps: number, weight: number) => {
+    const nextExercise = async () => {
         updatePRExerciseSession(currentExercise);
         updateExerciseLoad(currentExercise);
 
@@ -59,8 +47,15 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
     // Gera as séries de forma estável
     const seriesElements = useMemo(() => {
         if (!exercise || !exercise.series) return [];
+        
+        const exerciseSession = workoutSession.exerciseSessions[currentExercise];
 
-        return Array.from({ length: exercise.series }, (_, index) => (
+        return Array.from({ length: exercise.series }, (_, index) => {
+            const setData = exerciseSession?.sets?.[index];
+            const repsValue = setData?.reps_done || '';
+            const weightValue = setData?.weight_done || '';
+
+            return (
             <div className="flex justify-around items-center mb-4" key={index}>
                 <div className="text-center">
                     <label htmlFor={`reps-${index}`} className="text-gray-400 text-sm block mb-1">
@@ -69,27 +64,29 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                     <input
                         id={`reps-${index}`}
                         type="number"
-                        value={currentReps}
+                        value={repsValue}
                         onChange={(e) => updateExerciseSet(index, currentExercise, Number(e.target.value))}
                         className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
                     />
                 </div>
 
-                <div className="text-center">
-                    <label htmlFor={`weight-${index}`} className="text-gray-400 text-sm block mb-1">
-                        Peso (kg)
-                    </label>
-                    <input
-                        id={`weight-${index}`}
-                        type="number"
-                        value={currentWeight}
-                        onChange={(e) => updateExerciseSet(index, currentExercise, undefined, Number(e.target.value))}
-                        className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
-                    />
-                </div>
+                {exercise.equipment !== 'peso corporal' && (
+                    <div className="text-center">
+                        <label htmlFor={`weight-${index}`} className="text-gray-400 text-sm block mb-1">
+                            Peso (kg)
+                        </label>
+                        <input
+                            id={`weight-${index}`}
+                            type="number"
+                            value={weightValue}
+                            onChange={(e) => updateExerciseSet(index, currentExercise, undefined, Number(e.target.value))}
+                            className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
+                        />
+                    </div>
+                )}
             </div>
-        ));
-    }, [exercise, currentReps, currentWeight]);
+        )});
+    }, [exercise, workoutSession, currentExercise, updateExerciseSet]);
 
     if (!exercise) {
         return (
@@ -186,7 +183,7 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                     </button>
 
                     <button
-                        onClick={() => nextExercise(currentReps, currentWeight)}
+                        onClick={() => nextExercise()}
                         className="flex-1 py-4 bg-gradient-to-r from-rose-400 to-purple-400 rounded-2xl font-bold flex items-center justify-center gap-2"
                     >
                         {currentExercise < todayWorkout.exercises.length - 1

@@ -16,10 +16,10 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
   const [date, setDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  useEffect(() => {
-    console.log("CalendarScreen - menstrualCycles:", menstrualCycles);
-    console.log("CalendarScreen - userData:", userData);
-  }, [menstrualCycles, userData]);
+  // useEffect(() => {
+  //   console.log("CalendarScreen - menstrualCycles:", menstrualCycles);
+  //   console.log("CalendarScreen - userData:", userData);
+  // }, [menstrualCycles, userData]);
 
   const cyclePhases: CyclePhases = {
     menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸' },

@@ -237,7 +237,7 @@ export const useWorkoutSession = () => {
                 currentExSession.sets[set] = {
                     id: session.user.id + "-" + todayWorkoutState?.exercises[currentExercise].id + "-" + new Date().toISOString() + "-set-" + set, // Gerar ou obter ID conforme necessário
                     exercise_session_id: currentExSession.exercise.id,
-                    load_set: reps * (currentExSession.sets[set]?.weight_done || 0),
+                    load_set: reps * (currentExSession.sets[set]?.weight_done || 1),
                     weight_done: currentExSession.sets[set]?.weight_done || 0,
                     reps_done: reps,
                     ref_set: set + 1,

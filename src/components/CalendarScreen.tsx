@@ -5,6 +5,7 @@ import { addMenstrualCycle } from '../utils/api';
 import { CyclePhases } from '../types';
 import { getCyclePhase } from '../utils/cycle_phase';
 import { Session } from '@supabase/supabase-js';
+import { updateProfile } from 'firebase/auth';
 
 interface CalendarScreenProps {
   setCurrentScreen: (screen: string) => void;

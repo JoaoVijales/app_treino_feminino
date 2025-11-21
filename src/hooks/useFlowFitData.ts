@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UserData, TodayWorkout } from '../types';
 import { UserProfile, Workout, UserWorkoutSession, MenstrualCycle } from '../types/supabase';
-import { getUserProfile, getWorkouts, getUserWorkoutSessions, getWorkoutDetails, getMenstrualCycles, getWorkouExercises } from '../utils/api';
+import { getUserProfile, getWorkouts, getUserWorkoutSessions, getWorkoutDetails, getMenstrualCycles, getWorkouExercises, addMenstrualCycle, updateUserProfile } from '../utils/api';
 import { differenceInDays, getCyclePhase } from '../utils/cycle_phase';
 import { selectWorkoutPlan } from '../utils/workout_select';
 import { Session } from '@supabase/supabase-js';
@@ -76,7 +76,22 @@ export const useFlowFitData = () => {
         new Date(userProfile.last_period)
       );
 
-      const phase = getCyclePhase(new Date(userProfile.last_period), 28);
+      if (menstrualCycles.length === 0 && cycleDay > 0) {
+        // Se não houver ciclos registrados, mas houver last_period, criar um ciclo inicial
+        const newCycle: MenstrualCycle = {
+          id: '', // Será gerado pelo banco de dados
+          user_id: session.user.id,
+          start_date_log: userProfile.last_period,
+          end_date_log: null,
+          cycle_length: null,
+          created_at: new Date().toISOString(),
+        };
+        await addMenstrualCycle(newCycle);
+        await refetchFlowFitData();
+      }
+      const lastCycle = menstrualCycles[0];
+
+      const phase = getCyclePhase(new Date(lastCycle.start_date_log), 28);
 
       // 2.2 Atualizar userData
       setUserData({

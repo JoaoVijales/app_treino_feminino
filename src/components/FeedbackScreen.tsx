@@ -7,7 +7,7 @@ interface FeedbackScreenProps {
 }
 
 const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ setCurrentScreen }) => {
-  const {updateWokoutFeedBack, submitWorkoutSession} = useWorkoutSession();
+  const {updateWorkoutFeedBack, submitWorkoutSession} = useWorkoutSession();
   const [rpe, setRpe] = useState(5);
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
@@ -26,7 +26,7 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ setCurrentScreen }) => 
       alert('Por favor, forneça pelo menos uma forma de feedback antes de continuar.');
       return;
     }
-    updateWokoutFeedBack(
+    updateWorkoutFeedBack(
       rpe,
       symptoms.length ? symptoms[0] as 'energized' | 'tired' | 'strong' | 'pain' | 'cramps' | 'great' : null,
       notes
@@ -119,7 +119,7 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ setCurrentScreen }) => 
         </div>
 
         <button
-          onClick={() => setCurrentScreen('home')}
+          onClick={() => handleSubmitFeedback()}
           className="w-full mt-6 py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all"
         >
           Salvar e Finalizar

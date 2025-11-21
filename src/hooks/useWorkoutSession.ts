@@ -1,12 +1,16 @@
 import { useFlowFit } from "../context/FlowFitContext";
-import { useEffect, useState } from "react";
-import { FullWorkoutSession, UserWorkoutRecord, UserExerciseRecord } from "../types/supabase";
-import { getUserWorkoutSessions, getUserWorkoutRecords, getUserExerciseRecords, getUserWorkoutExerciseSessions,  addUserWorkoutSession, addUserWorkoutExerciseSessions, addUserWorkoutExerciseSets} from "../utils/api";
-import { Session } from "@supabase/supabase-js";
+import { useEffect, useState, useCallback } from "react";
+import { FullWorkoutSession } from "../types/supabase";
+import { 
+    addUserWorkoutSession, 
+    addUserWorkoutExerciseSessions, 
+    addUserWorkoutExerciseSets 
+} from "../utils/api";
+import { v4 as uuidv4 } from 'uuid'; // ✅ ADICIONADO
 
 export const useWorkoutSession = () => {
-
     const { userProfile, todayWorkoutState, userData, session } = useFlowFit();
+    
     const [workoutSession, setWorkoutSession] = useState<FullWorkoutSession>({
         workoutSession: {} as unknown as FullWorkoutSession['workoutSession'],
         exerciseSessions: [
@@ -16,192 +20,75 @@ export const useWorkoutSession = () => {
             }
         ],
     });
-    const [workoutRecords, setWorkoutRecords] = useState<UserWorkoutRecord>();
-    const [exerciseRecords, setExerciseRecords] = useState<UserExerciseRecord>();   
 
     const submitWorkoutSession = async () => {
-    if (!session?.user?.id) return;
-    // Implement submission logic here
-    await addUserWorkoutSession({ ...workoutSession.workoutSession, user_id: session.user.id });
-    await addUserWorkoutExerciseSessions(workoutSession.exerciseSessions.map(exSession => ({ ...exSession.exercise, user_id: session.user.id })));
-    await addUserWorkoutExerciseSets(workoutSession.exerciseSessions.flatMap(exSession => exSession.sets || []).map(set => ({ ...set, user_id: session.user.id })));
-}
+        if (!session?.user?.id) return;
 
-
-
-    const updatePRworkoutSession = async () => {
-        if (!session?.user?.id || !userProfile?.id) return;
-        if (!workoutSession.workoutSession.load_workout_total) return;
-
-        const workoutRecordsListAll = await getUserWorkoutRecords();
-        const workoutRecordsList = workoutRecordsListAll?.filter(record => record.workout_id === todayWorkoutState?.id);
-        const workoutRecords = workoutRecordsList && workoutRecordsList.length > 0 ? workoutRecordsList[0] : null;
-        if (!workoutRecords) {
-            const history = await getUserWorkoutSessions();
-            const todayWorkoutHistory = history?.filter(item => item.workout_id === todayWorkoutState?.id);
-
-            if (todayWorkoutHistory && todayWorkoutHistory.length > 0) {
-                todayWorkoutHistory.sort((a, b) => (b.load_workout_total || 0) - (a.load_workout_total || 0))
-                const bestSession = todayWorkoutHistory[0];
-
-                if (!bestSession.load_workout_total) return;
-
-                if (bestSession.load_workout_total > workoutSession.workoutSession.load_workout_total) {
-                    setWorkoutRecords(() => ({
-                        user_id: session.user.id,
-                        workout_id: bestSession.workout_id || '',
-                        record_load: bestSession.load_workout_total,
-                        record_date: bestSession.session_date,
-                        created_at: bestSession.created_at,
-                    }));
-                } else {
-                    setWorkoutRecords(() => ({
-                        user_id: session.user.id,
-                        workout_id: workoutSession.workoutSession.workout_id || '',
-                        record_load: workoutSession.workoutSession.load_workout_total,
-                        record_date: workoutSession.workoutSession.session_date,
-                        created_at: workoutSession.workoutSession.created_at,
-                    }));
-                }
-
-            } else {
-                setWorkoutRecords(() => ({
-                    user_id: session.user.id,
-                    workout_id: workoutSession.workoutSession.workout_id || '',
-                    record_load: workoutSession.workoutSession.load_workout_total,
-                    record_date: workoutSession.workoutSession.session_date,
-                    created_at: workoutSession.workoutSession.created_at,
-                }));
-
-            }
-        } else {
-            if (workoutRecords.record_load && workoutRecords.record_load < workoutSession.workoutSession.load_workout_total) {
-                setWorkoutRecords(() => ({
-                    user_id: session.user.id,
-                    workout_id: workoutSession.workoutSession.workout_id || '',
-                    record_load: workoutSession.workoutSession.load_workout_total,
-                    record_date: workoutSession.workoutSession.session_date,
-                    created_at: workoutSession.workoutSession.created_at,
-                }));
-            } else {
-                setWorkoutRecords(() => ({
-                    user_id: workoutRecords.user_id,
-                    workout_id: workoutRecords.workout_id,
-                    record_load: workoutRecords.record_load,
-                    record_date: workoutRecords.record_date,
-                    created_at: workoutRecords.created_at,
-                }));
-            }
-        }
-
-
-    }
-
-    const updatePRExerciseSession = async (currentExercise: number) => {
-        // Lógica para atualizar PRs (Personal Records) pode ser implementada aqui
-        if (!session?.user?.id || !userProfile?.id) return;
-
-        const exercise = workoutSession.exerciseSessions[currentExercise];
-        if (!exercise) return;
-
-        // pegar ultimo recorde do usuário para o exercício atual
-        const exerciseRecordsListAll = await getUserExerciseRecords();
-        const exerciseRecordsList = exerciseRecordsListAll?.filter(record => record.exercise_id === exercise.exercise.exercise_session_id);
-        const exerciseRecords = exerciseRecordsList && exerciseRecordsList.length > 0 ? exerciseRecordsList[0] : null;
-
-        if (!exerciseRecords) {
-            const history = await getUserWorkoutExerciseSessions( exercise.exercise.exercise_session_id);
-            const exerciseHistory = history?.flatMap(item =>
-                item.exercise_session_id === exercise.exercise.exercise_session_id ? [item] : []
+        try {
+            await addUserWorkoutSession({ 
+                ...workoutSession.workoutSession, 
+                user_id: session.user.id 
+            });
+            
+            await addUserWorkoutExerciseSessions(
+                workoutSession.exerciseSessions.map(exSession => ({ 
+                    ...exSession.exercise, 
+                    user_id: session.user.id 
+                }))
             );
-
-            if (exerciseHistory && exerciseHistory.length > 0) {
-                // ordenar a lista por load_exercise_session em ordem decrescente
-                exerciseHistory.sort((a, b) => (b.load_exercise_session || 0) - (a.load_exercise_session || 0))
-                const bestExerciseSession = exerciseHistory[0];
-
-                if (!bestExerciseSession.load_exercise_session || !exercise.exercise.load_exercise_session) return;
-
-                if (bestExerciseSession.load_exercise_session > exercise.exercise.load_exercise_session) {
-                    setExerciseRecords(() => ({
-                        user_id: session.user.id,
-                        workout_id: workoutSession.workoutSession.workout_id || '',
-                        exercise_id: bestExerciseSession.exercise_session_id,
-                        record_load: bestExerciseSession.load_exercise_session,
-                        exercise_session_id: bestExerciseSession.id,
-                        created_at: bestExerciseSession.created_at,
-                    }));
-                }
-
-            } else {
-                setExerciseRecords(() => ({
-                    user_id: session.user.id,
-                    workout_id: workoutSession.workoutSession.workout_id || '',
-                    exercise_id: exercise.exercise.exercise_session_id,
-                    record_load: exercise.exercise.load_exercise_session,
-                    exercise_session_id: exercise.exercise.id,
-                    created_at: exercise.exercise.created_at,
-                }));
-            }
-        } else {
-            if (exerciseRecords.record_load && exerciseRecords.record_load < exercise.exercise.load_exercise_session!) {
-                setExerciseRecords(() => ({
-                    user_id: session.user.id,
-                    workout_id: workoutSession.workoutSession.workout_id || '',
-                    exercise_id: exercise.exercise.exercise_session_id,
-                    record_load: exercise.exercise.load_exercise_session,
-                    exercise_session_id: exercise.exercise.id,
-                    created_at: exercise.exercise.created_at,
-                }));
-            } else {
-                setExerciseRecords(() => ({
-                    user_id: exerciseRecords.user_id,
-                    workout_id: exerciseRecords.workout_id,
-                    exercise_id: exerciseRecords.exercise_id,
-                    record_load: exerciseRecords.record_load,
-                    exercise_session_id: exerciseRecords.exercise_session_id,
-                    created_at: exerciseRecords.created_at,
-                }));
-            }
+            
+            await addUserWorkoutExerciseSets(
+                workoutSession.exerciseSessions
+                    .flatMap(exSession => exSession.sets || [])
+                    .map(set => ({ 
+                        ...set, 
+                        user_id: session.user.id 
+                    }))
+            );
+        } catch (error) {
+            console.error("Error submitting workout session:", error);
+            throw error;
         }
-    }
+    };
 
-
-    const updateWokoutFeedBack = (
+    const updateWorkoutFeedBack = (
         intensity_rating: number | null,
         feeling: 'energized' | 'tired' | 'strong' | 'pain' | 'cramps' | 'great' | null,
-        notes: string | null,) => {
-
+        notes: string | null
+    ) => {
         if (!todayWorkoutState || !userProfile) return;
-        setWorkoutSession((prevSession) => ({
-            ...prevSession,
-            workoutSession: {
-                ...prevSession.workoutSession,
-                intensity_rating: intensity_rating,
-                feeling: feeling,
-                notes: notes,
-            },
-        }));
-    }
-
-    const updateWokoutLoad = () => {
-        if (!todayWorkoutState || !userProfile) return;
-
-        const totalLoad = workoutSession.exerciseSessions.reduce((totalEx, exSession) => {
-            const exerciseLoad = exSession.sets?.reduce((totalSet, set) => {
-                return totalSet + (set.load_set || 0);
-            }, 0) || 0;
-            return totalEx + exerciseLoad;
-        }, 0);
 
         setWorkoutSession((prevSession) => ({
             ...prevSession,
             workoutSession: {
                 ...prevSession.workoutSession,
-                load_workout_total: totalLoad,
+                intensity_rating,
+                feeling,
+                notes,
             },
         }));
-    }
+    };
+
+    const updateWorkoutLoad = () => {
+        if (!todayWorkoutState || !userProfile) return;
+
+        setWorkoutSession((prevSession) => {
+            const totalLoad = prevSession.exerciseSessions.reduce((totalEx, exSession) => {
+                const exerciseLoad = exSession.sets?.reduce((totalSet, set) => {
+                    return totalSet + (set.load_set || 0);
+                }, 0) || 0;
+                return totalEx + exerciseLoad;
+            }, 0);
+
+            return {
+                ...prevSession,
+                workoutSession: {
+                    ...prevSession.workoutSession,
+                    load_workout_total: totalLoad,
+                },
+            };
+        });
+    };
 
     const updateExerciseLoad = (currentExercise: number) => {
         if (!todayWorkoutState || !userProfile) return;
@@ -210,51 +97,13 @@ export const useWorkoutSession = () => {
             const updatedExerciseSessions = [...prevSession.exerciseSessions];
             const currentExSession = updatedExerciseSessions[currentExercise];
 
+            if (!currentExSession) return prevSession;
+
             const totalLoad = currentExSession.sets?.reduce((total, set) => {
                 return total + (set.load_set || 0);
             }, 0) || 0;
 
             currentExSession.exercise.load_exercise_session = totalLoad;
-
-            updatedExerciseSessions[currentExercise] = currentExSession;
-
-            return {
-                ...prevSession,
-                exerciseSessions: updatedExerciseSessions,
-            };
-        });
-    }
-
-    const updateExerciseSet = (set: number, currentExercise: number, reps?: number, weight?: number,) => {
-
-        if (!todayWorkoutState || !userProfile || !session?.user?.id) return;
-
-        setWorkoutSession((prevSession) => {
-            const updatedExerciseSessions = [...prevSession.exerciseSessions];
-            const currentExSession = updatedExerciseSessions[currentExercise];
-            if (!currentExSession.sets) return prevSession;
-            if (reps) {
-                currentExSession.sets[set] = {
-                    id: session.user.id + "-" + todayWorkoutState?.exercises[currentExercise].id + "-" + new Date().toISOString() + "-set-" + set, // Gerar ou obter ID conforme necessário
-                    exercise_session_id: currentExSession.exercise.id,
-                    load_set: reps * (currentExSession.sets[set]?.weight_done || 1),
-                    weight_done: currentExSession.sets[set]?.weight_done || 0,
-                    reps_done: reps,
-                    ref_set: set + 1,
-                    created_at: new Date().toISOString(),
-                };
-            } else if (weight) {
-                currentExSession.sets[set] = {
-                    id: session.user.id + "-" + todayWorkoutState?.exercises[currentExercise].id + "-" + new Date().toISOString() + "-set-" + set, // Gerar ou obter ID conforme necessário
-                    exercise_session_id: currentExSession.exercise.id,
-                    load_set: weight * (currentExSession.sets[set]?.reps_done || 0),
-                    weight_done: weight,
-                    reps_done: currentExSession.sets[set]?.reps_done || 0,
-                    ref_set: set + 1,
-                    created_at: new Date().toISOString(),
-                };
-            }
-
             updatedExerciseSessions[currentExercise] = currentExSession;
 
             return {
@@ -264,49 +113,111 @@ export const useWorkoutSession = () => {
         });
     };
 
-    const fetchWorkoutSession = async () => {
-        if (!todayWorkoutState || !todayWorkoutState.id) return;
+    const updateExerciseSet = (
+        set: number, 
+        currentExercise: number, 
+        reps?: number, 
+        weight?: number
+    ) => {
+        if (!todayWorkoutState || !userProfile || !session?.user?.id) return;
+
+        setWorkoutSession((prevSession) => {
+            const updatedExerciseSessions = [...prevSession.exerciseSessions];
+            const currentExSession = updatedExerciseSessions[currentExercise];
+            
+            if (!currentExSession?.sets) return prevSession;
+
+            const currentSet = currentExSession.sets[set];
+            const exerciseId = todayWorkoutState.exercises[currentExercise]?.id;
+
+            if (!exerciseId) return prevSession;
+
+            // Preservar valores existentes e calcular load_set corretamente
+            const updatedReps = reps !== undefined ? reps : (currentSet?.reps_done || 0);
+            const updatedWeight = weight !== undefined ? weight : (currentSet?.weight_done || 0);
+            const calculatedLoad = updatedReps * updatedWeight;
+
+            // ✅ CORRIGIDO: Usar UUID v4 para garantir unicidade
+            currentExSession.sets[set] = {
+                id: currentSet?.id || uuidv4(), // ✅ Preserva ID existente ou cria novo UUID
+                exercise_session_id: currentExSession.exercise.id,
+                load_set: calculatedLoad,
+                weight_done: updatedWeight,
+                reps_done: updatedReps,
+                ref_set: set + 1,
+                created_at: currentSet?.created_at || new Date().toISOString(), // ✅ Preserva timestamp original
+            };
+
+            updatedExerciseSessions[currentExercise] = currentExSession;
+
+            return {
+                ...prevSession,
+                exerciseSessions: updatedExerciseSessions,
+            };
+        });
+
+        // Recalcular cargas automaticamente
+        setTimeout(() => {
+            updateExerciseLoad(currentExercise);
+            updateWorkoutLoad();
+        }, 0);
+    };
+
+    const fetchWorkoutSession = useCallback(async () => {
+        if (!todayWorkoutState?.id || !userProfile || !userData.currentPhase || !session?.user?.id) {
+            return;
+        }
 
         try {
-            if (!userProfile || !userData.currentPhase || !session?.user?.id) return;
+            const timestamp = new Date().toISOString();
 
-            setWorkoutSession((prevState) => {
-                prevState = {
-                    workoutSession: {
-                        id: session.user.id + "-" + todayWorkoutState.id + "-" + new Date().toISOString(), // Gerar ou obter ID conforme necessário
-                        user_id: session.user.id, // Substitua conforme necessário
-                        workout_id: todayWorkoutState.id,
-                        session_date: new Date().toISOString(),
-                        duration: prevState.workoutSession.duration || null,
-                        actual_phase: userData.currentPhase,
-                        intensity_rating: prevState.workoutSession.intensity_rating || null,
-                        feeling: prevState.workoutSession.feeling || null,
-                        notes: prevState.workoutSession.notes || null,
-                        load_workout_total: prevState.workoutSession.load_workout_total || null,
-                        created_at: new Date().toISOString(),
-                    },
-                    exerciseSessions: todayWorkoutState.exercises.map((exercise) => ({
+            setWorkoutSession((prevState) => ({
+                workoutSession: {
+                    id: uuidv4(), // ✅ UUID para workout session
+                    user_id: session.user.id,
+                    workout_id: todayWorkoutState.id,
+                    session_date: timestamp,
+                    duration: prevState.workoutSession.duration || null,
+                    actual_phase: userData.currentPhase,
+                    intensity_rating: prevState.workoutSession.intensity_rating || null,
+                    feeling: prevState.workoutSession.feeling || null,
+                    notes: prevState.workoutSession.notes || null,
+                    load_workout_total: prevState.workoutSession.load_workout_total || null,
+                    created_at: timestamp,
+                },
+                exerciseSessions: todayWorkoutState.exercises.map((exercise) => {
+                    const existingSession = prevState.exerciseSessions.find(
+                        es => es.exercise.exercise_session_id === exercise.id
+                    );
+
+                    return {
                         exercise: {
-                            id: session.user.id + "-" + exercise.id + "-" + new Date().toISOString(), // Gerar ou obter ID conforme necessário
+                            id: uuidv4(), // ✅ UUID para exercise session
                             session_id: todayWorkoutState.id,
                             exercise_session_id: exercise.id,
-                            load_exercise_session: prevState.exerciseSessions.find(es => es.exercise.exercise_session_id === exercise.id)?.exercise.load_exercise_session || null,
-                            created_at: new Date().toISOString(),
+                            load_exercise_session: existingSession?.exercise.load_exercise_session || null,
+                            created_at: timestamp,
                         },
-                        sets: [], // Inicialmente vazio; será preenchido conforme o usuário completa os sets
-                    })),
-                };
-                return prevState
-            });
-
+                        sets: [], // ✅ Sets serão criados com UUID quando atualizados
+                    };
+                }),
+            }));
         } catch (error) {
             console.error("Error fetching workout session:", error);
         }
-    }
+    }, [todayWorkoutState, userProfile, userData.currentPhase, session]);
 
-        useEffect(() => {
-            fetchWorkoutSession();
-        }, [todayWorkoutState]);
+    useEffect(() => {
+        fetchWorkoutSession();
+    }, [fetchWorkoutSession]);
 
-    return { exerciseRecords, workoutRecords, workoutSession, setWorkoutSession, updateExerciseSet, updatePRworkoutSession, updatePRExerciseSession, updateExerciseLoad, updateWokoutFeedBack, updateWokoutLoad, submitWorkoutSession  };
-}
+    return { 
+        workoutSession, 
+        setWorkoutSession, 
+        updateExerciseSet, 
+        updateExerciseLoad, 
+        updateWorkoutFeedBack,
+        updateWorkoutLoad,
+        submitWorkoutSession 
+    };
+};

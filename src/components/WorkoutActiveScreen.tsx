@@ -30,16 +30,16 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
     // Sempre seguro — não mutável
 
     const exercise = todayWorkout?.exercises?.[currentExercise];
-    const { workoutSession, updateExerciseSet, updatePRExerciseSession, updateExerciseLoad, updateWokoutLoad } = useWorkoutSession();
+    const { workoutSession, updateExerciseSet, updateExerciseLoad, updateWorkoutLoad } = useWorkoutSession();
 
     const nextExercise = async () => {
-        updatePRExerciseSession(currentExercise);
+        //updatePRExerciseSession(currentExercise);
         updateExerciseLoad(currentExercise);
 
         if (todayWorkout && currentExercise < todayWorkout.exercises.length - 1) {
             setCurrentExercise(currentExercise + 1);
         } else {
-            updateWokoutLoad();
+            updateWorkoutLoad();
             setCurrentScreen('feedback');
         }
     };

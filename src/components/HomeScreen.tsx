@@ -1,8 +1,9 @@
-import React from 'react';
-import { Activity, Clock, Target, Info, Play, Settings, Calendar, BarChart3, Zap } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Activity, Clock, Target, Info, Play, Settings, Calendar, BarChart3, Zap, Droplet, Sun, Moon } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
 import { CyclePhases } from '../types';
-import { Droplet, Sun, Moon } from 'lucide-react';
+import { getWorkoutsThisWeek, getConsistency, getStreak } from '../utils/stats';
+
 
 
 interface HomeScreenProps {
@@ -11,8 +12,17 @@ interface HomeScreenProps {
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen }) => {
-  const { userData, todayWorkoutState } = useFlowFit();
+  const { userData, todayWorkoutState, workoutHistory } = useFlowFit();
   const currentPhase = userData.currentPhase;
+
+  const stats = useMemo(() => {
+    if (!workoutHistory) return { workoutsThisWeek: 0, consistency: 0, streak: 0 };
+    return {
+      workoutsThisWeek: getWorkoutsThisWeek(workoutHistory),
+      consistency: getConsistency(workoutHistory),
+      streak: getStreak(workoutHistory),
+    };
+  }, [workoutHistory]);
 
   const cyclePhases: CyclePhases = {
     menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸',},
@@ -140,15 +150,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen 
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-2xl p-4 text-center shadow">
-            <div className="text-2xl font-bold text-gray-800">4</div>
+            <div className="text-2xl font-bold text-gray-800">{stats.workoutsThisWeek}</div>
             <div className="text-xs text-gray-600">Esta semana</div>
           </div>
           <div className="bg-white rounded-2xl p-4 text-center shadow">
-            <div className="text-2xl font-bold text-gray-800">87%</div>
+            <div className="text-2xl font-bold text-gray-800">{stats.consistency}%</div>
             <div className="text-xs text-gray-600">Consistência</div>
           </div>
           <div className="bg-white rounded-2xl p-4 text-center shadow">
-            <div className="text-2xl font-bold text-gray-800">12</div>
+            <div className="text-2xl font-bold text-gray-800">{stats.streak}</div>
             <div className="text-xs text-gray-600">Sequência</div>
           </div>
         </div>

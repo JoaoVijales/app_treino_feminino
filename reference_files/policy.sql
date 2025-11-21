@@ -116,3 +116,18 @@ FOR INSERT WITH CHECK (
   )
 );
 
+
+ALTER TABLE user_plan ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "deny_client_insert" ON user_plan
+FOR INSERT
+TO authenticated, anon
+USING (false)
+WITH CHECK (false);
+
+CREATE POLICY "server_insert" ON user_plan
+FOR INSERT
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+

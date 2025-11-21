@@ -19,6 +19,14 @@ create table if not exists user_profiles (
     created_at timestamp with time zone default now()
 );
 
+CREATE TABLE IF NOT EXISTS user_plan (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_plan TEXT NOT NULL CHECK (user_plan IN ('free', 'basic')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
 -- ===========================
 -- CYCLE PHASE RULES
 -- ===========================

@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server'; // Import NextResponse for easier JSON responses
+import { UserPlan } from '@/src/types/supabase'; // Import UserPlan type using alias
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -75,18 +76,74 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
+      // Check if user exists in our user_profiles table
+      const { data: userProfileData, error: userProfileError } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (userProfileError) {
+        console.error('Error fetching user profile for refund check:', userProfileError.message);
+        // Continue, but if the user_id from metadata is invalid, the upsert might fail later.
+        // For now, let the upsert proceed, and handle refund only if userProfileData is definitively null.
+      }
+
+      if (!userProfileData) {
+        console.warn(`⚠️ User with ID ${userId} not found in user_profiles. Attempting to refund payment.`);
+        // Attempt to refund
+        if (session.payment_intent) {
+          try {
+            await stripe.refunds.create({
+              payment_intent: session.payment_intent as string,
+              reason: 'requested_by_customer', // Or 'fraudulent' if it's really an unknown user
+            });
+            console.log(`✅ Payment refunded for session ${session.id} due to unknown user.`);
+            return NextResponse.json({ error: 'User not found. Payment refunded.' }, { status: 400 });
+          } catch (refundError: any) {
+            console.error('❌ Error refunding payment:', refundError.message);
+            return NextResponse.json({ error: 'User not found. Failed to refund payment.' }, { status: 500 });
+          }
+        } else {
+          console.warn(`⚠️ Cannot refund payment for session ${session.id} as payment_intent is missing.`);
+          return NextResponse.json({ error: 'User not found. Payment intent missing for refund.' }, { status: 400 });
+        }
+      }
+
       // Vincula customer ao usuário (REMOVED: user_profiles does not have stripe_customer_id)
       // O vínculo entre user_id e customerId é mantido na tabela user_plans através dos eventos de assinatura.
       console.log(`✅ Checkout concluído: user ${userId} -> customer ${customerId}. O vínculo será mantido em user_plans.`);
 
-      // TODO: Implement the update to user_plans to associate stripe_customer_id with user_id
-      // This was identified as a missing step from the Django reference file.
-      // Example:
-      // await supabaseAdmin.from('user_plans').upsert({
-      //   user_id: userId,
-      //   stripe_customer_id: customerId,
-      //   // Other relevant fields like stripe_product_id, stripe_price_id can be extracted from session.line_items
-      // }, { onConflict: 'user_id' });
+      // Extract line item details
+      const lineItem = session.line_items?.data[0];
+      const stripeProductId = lineItem?.price?.product as string | undefined;
+      const stripePriceId = lineItem?.price?.id as string | undefined;
+
+      const userPlanData: Partial<UserPlan> = {
+        user_id: userId,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId, // Use subscriptionId from session
+        stripe_product_id: stripeProductId,
+        stripe_price_id: stripePriceId,
+        // For checkout.session.completed, if payment is successful and it's a subscription, status is active or trialing
+        status: session.mode === 'subscription' && session.payment_status === 'paid' ? 'active' : 'incomplete',
+        current_period_start: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null, // Using expires_at as a placeholder
+        current_period_end: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null, // Using expires_at as a placeholder
+        // trial_start and trial_end are typically from the subscription object, which will be handled by customer.subscription.created/updated
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: upsertError } = await supabaseAdmin.from('user_plans').upsert(userPlanData, {
+        onConflict: 'user_id', // Update if user_id already exists
+        ignoreDuplicates: false, // Ensure update happens
+      });
+
+      if (upsertError) {
+        console.error('❌ Erro ao atualizar user_plans no checkout.session.completed:', upsertError.message);
+        return NextResponse.json({ error: 'Failed to update user plan' }, { status: 500 });
+      }
+
+      console.log(`✅ user_plans atualizado para user ${userId} no evento checkout.session.completed.`);
 
       return NextResponse.json({ received: true }, { status: 200 });
     }
@@ -133,7 +190,7 @@ export async function POST(req: Request) {
         // The original had 'plan_id: subscription.items.data[0].price.id', which should map to stripe_price_id
         stripe_price_id: subscription.items.data[0].price.id,
         // If product ID is needed, it typically comes from subscription.items.data[0].price.product
-        stripe_product_id: subscription.items.data[0].price.product as string,
+        stripe_product_id: subscription.items.data[0].price.product as string, // Ensure it's treated as string ID
         current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
         current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end,

@@ -2,14 +2,15 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useFlowFitData } from '../hooks/useFlowFitData';
 import { UserData, TodayWorkout } from '../types';
-import { UserProfile, UserWorkoutSession, MenstrualCycle } from '../types/supabase';
+import { UserProfile, UserWorkoutSession, MenstrualCycle, UserPlan } from '../types/supabase'; // Import UserPlan
 import { supabase } from '../utils/supabaseClient'; // Import supabase instance
 
 interface FlowFitContextType {
   userData: UserData | null;
   userProfile: UserProfile | null;
+  userPlan: UserPlan | null; // Add userPlan
   userWorkoutSessions: UserWorkoutSession[];
-  workoutHistory: UserWorkoutSession[]; // Add workoutHistory
+  workoutHistory: UserWorkoutSession[];
   menstrualCycles: MenstrualCycle[];
   currentWorkout: TodayWorkout | null;
   todayWorkoutState: TodayWorkout | null;
@@ -32,6 +33,7 @@ export const FlowFitProvider: React.FC<{ children: ReactNode }> = ({ children })
   const {
     userData,
     userProfile,
+    userPlan, // Destructure userPlan
     userWorkoutSessions,
     menstrualCycles,
     currentWorkout,
@@ -55,6 +57,7 @@ export const FlowFitProvider: React.FC<{ children: ReactNode }> = ({ children })
       value={{
         userData,
         userProfile,
+        userPlan, // Provide userPlan in context value
         userWorkoutSessions,
         workoutHistory: userWorkoutSessions, // Pass userWorkoutSessions as workoutHistory
         menstrualCycles,

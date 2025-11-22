@@ -14,7 +14,8 @@ import WorkoutActiveScreen from './WorkoutActiveScreen';
 import { useFlowFit } from '../context/FlowFitContext';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { OnboardingScreenConfig, UserData, TodayWorkout } from '../types';
-import { UserProfile } from '../types/supabase';
+import { UserProfile, UserPlan } from '../types/supabase'; // Import UserPlan
+import SubscriptionRequiredScreen from './SubscriptionRequiredScreen'; // Import the new screen
 
 const onboardingScreensConfig: OnboardingScreenConfig[] = [
   {
@@ -64,8 +65,8 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
 
 
 const FlowFitApp: React.FC = () => {
-  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout } = useFlowFit(); // Add currentWorkout
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active'>(
+  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan } = useFlowFit(); // Access userPlan
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active' | 'subscription-required'>(
     'login'
   );
   const [showMenu, setShowMenu] = useState(false);
@@ -110,23 +111,19 @@ const FlowFitApp: React.FC = () => {
 
   useEffect(() => {
     if (userProfile && !loading) {
-      if (userProfile.onboarding_completed) {
-        setCurrentScreen('home');
-      } else {
-        // Initialize onboardingUserData with existing userProfile data
-        setOnboardingUserData({
-          name: userProfile.name || '',
-          goal: userProfile.goal || '',
-          equipment: userProfile.equipment || '',
-          cycleRegular: userProfile.cycle_regular || '',
-          lastPeriod: userProfile.last_period || '',
-          currentPhase: null, // This will be calculated
-          cycleDay: 0, // This will be calculated
-        });
+      if (!userProfile.onboarding_completed) {
         setCurrentScreen('onboarding');
+      } else {
+        // Check subscription status
+        const isActiveSubscriber = userPlan && (userPlan.status === 'active' || userPlan.status === 'trialing');
+        if (!isActiveSubscriber) {
+          setCurrentScreen('subscription-required');
+        } else {
+          setCurrentScreen('home');
+        }
       }
     }
-  }, [userProfile, loading]);
+  }, [userProfile, loading, userPlan]);
 
   const handleOnboardingNext = useCallback(async () => {
     const currentScreenConfig = onboardingScreensConfig[onboardingStep];
@@ -225,6 +222,8 @@ const FlowFitApp: React.FC = () => {
             setCurrentScreen={setCurrentScreen}
           />
         );
+      case 'subscription-required':
+        return <SubscriptionRequiredScreen onNavigate={setCurrentScreen} />;
       case 'workout-active':
         return (
           <WorkoutActiveScreen

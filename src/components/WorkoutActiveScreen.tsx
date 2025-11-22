@@ -6,7 +6,8 @@ import { FullWorkoutSession, Workout } from '../types/supabase';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 
 interface WorkoutActiveScreenProps {
-    setCurrentScreen: (screen: string) => void;
+    onFinish: () => void;
+    onNavigate: (screen: 'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active') => void;
     setCurrentExercise: (index: number) => void;
     currentExercise: number;
     todayWorkout: TodayWorkout | null;
@@ -17,7 +18,8 @@ interface WorkoutActiveScreenProps {
 }
 
 const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
-    setCurrentScreen,
+    onFinish,
+    onNavigate, // Destructure onNavigate
     setCurrentExercise,
     currentExercise,
     todayWorkout,
@@ -30,7 +32,7 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
     // Sempre seguro — não mutável
 
     const exercise = todayWorkout?.exercises?.[currentExercise];
-    const { workoutSession, updateExerciseSet, updateExerciseLoad, updateWorkoutLoad } = useWorkoutSession();
+    const { currentWorkoutSession, updateExerciseSet, updateExerciseLoad, updateWorkoutLoad } = useWorkoutSession();
 
     const nextExercise = async () => {
         //updatePRExerciseSession(currentExercise);
@@ -40,15 +42,15 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
             setCurrentExercise(currentExercise + 1);
         } else {
             updateWorkoutLoad();
-            setCurrentScreen('feedback');
+            onFinish(); // Use onFinish prop instead of setCurrentScreen('feedback')
         }
     };
 
     // Gera as séries de forma estável
     const seriesElements = useMemo(() => {
-        if (!exercise || !exercise.series) return [];
+        if (!exercise || !exercise.series || !currentWorkoutSession) return []; // Add null check for currentWorkoutSession
         
-        const exerciseSession = workoutSession.exerciseSessions[currentExercise];
+        const exerciseSession = currentWorkoutSession.exerciseSessions[currentExercise];
 
         return Array.from({ length: exercise.series }, (_, index) => {
             const setData = exerciseSession?.sets?.[index];
@@ -65,7 +67,11 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                         id={`reps-${index}`}
                         type="number"
                         value={repsValue}
-                        onChange={(e) => updateExerciseSet(index, currentExercise, Number(e.target.value))}
+                        onChange={(e) => {
+                          if (exerciseSession?.exercise?.id && setData?.id) {
+                            updateExerciseSet(exerciseSession.exercise.id, setData.id, undefined, Number(e.target.value));
+                          }
+                        }}
                         className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
                     />
                 </div>
@@ -79,14 +85,18 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                             id={`weight-${index}`}
                             type="number"
                             value={weightValue}
-                            onChange={(e) => updateExerciseSet(index, currentExercise, undefined, Number(e.target.value))}
+                            onChange={(e) => {
+                              if (exerciseSession?.exercise?.id && setData?.id) {
+                                updateExerciseSet(exerciseSession.exercise.id, setData.id, Number(e.target.value), undefined);
+                              }
+                            }}
                             className="w-24 p-2 bg-white/10 rounded-lg text-center text-xl font-bold"
                         />
                     </div>
                 )}
             </div>
         )});
-    }, [exercise, workoutSession, currentExercise, updateExerciseSet]);
+    }, [exercise, currentWorkoutSession, currentExercise, updateExerciseSet]);
 
     if (!exercise) {
         return (
@@ -104,7 +114,7 @@ const WorkoutActiveScreen: React.FC<WorkoutActiveScreenProps> = ({
                     <button
                         onClick={() => {
                             if (window.confirm('Tem certeza que deseja sair do treino?')) {
-                                setCurrentScreen('home');
+                                onNavigate('home');
                             }
                         }}
                         className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center"

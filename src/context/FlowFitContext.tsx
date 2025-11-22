@@ -1,28 +1,78 @@
-import React, { createContext, useContext } from 'react';
+"use client";
+import React, { createContext, useContext, ReactNode } from 'react';
 import { useFlowFitData } from '../hooks/useFlowFitData';
 import { UserData, TodayWorkout } from '../types';
 import { UserProfile, UserWorkoutSession, MenstrualCycle } from '../types/supabase';
-import { Session } from '@supabase/supabase-js';
+import { supabase } from '../utils/supabaseClient'; // Import supabase instance
 
 interface FlowFitContextType {
-  session: Session | null;
-  userData: UserData;
-  todayWorkoutState: TodayWorkout | null;
-  loading: boolean;
+  userData: UserData | null;
   userProfile: UserProfile | null;
-  workoutHistory: UserWorkoutSession[];
+  userWorkoutSessions: UserWorkoutSession[];
+  workoutHistory: UserWorkoutSession[]; // Add workoutHistory
   menstrualCycles: MenstrualCycle[];
-  setUserData: React.Dispatch<React.SetStateAction<UserData>>;
-  refetchFlowFitData: () => Promise<void>;
+  currentWorkout: TodayWorkout | null;
+  todayWorkoutState: TodayWorkout | null;
+  currentPhase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | null;
+  cycleDay: number | null;
+  loading: boolean;
+  error: string | null;
+  updateUserData: (newData: Partial<UserData>) => void;
+  fetchUserProfile: () => Promise<void>;
+  fetchUserWorkoutSessions: (userId: string) => Promise<void>;
+  fetchMenstrualCycles: () => Promise<void>;
+  selectWorkout: (workout: TodayWorkout) => void;
+  signOut: () => Promise<void>;
+  supabase: any; // Add supabase instance to context
 }
 
 const FlowFitContext = createContext<FlowFitContextType | undefined>(undefined);
 
-export const FlowFitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const flowFitData = useFlowFitData();
+export const FlowFitProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const {
+    userData,
+    userProfile,
+    userWorkoutSessions,
+    menstrualCycles,
+    currentWorkout,
+    currentPhase,
+    cycleDay,
+    loading,
+    error,
+    updateUserData,
+    fetchUserProfile,
+    fetchUserWorkoutSessions,
+    fetchMenstrualCycles,
+    selectWorkout,
+  } = useFlowFitData();
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   return (
-    <FlowFitContext.Provider value={flowFitData}>
+    <FlowFitContext.Provider
+      value={{
+        userData,
+        userProfile,
+        userWorkoutSessions,
+        workoutHistory: userWorkoutSessions, // Pass userWorkoutSessions as workoutHistory
+        menstrualCycles,
+        currentWorkout,
+        todayWorkoutState: currentWorkout,
+        currentPhase,
+        cycleDay,
+        loading,
+        error,
+        updateUserData,
+        fetchUserProfile,
+        fetchUserWorkoutSessions,
+        fetchMenstrualCycles,
+        selectWorkout,
+        signOut,
+        supabase,
+      }}
+    >
       {children}
     </FlowFitContext.Provider>
   );

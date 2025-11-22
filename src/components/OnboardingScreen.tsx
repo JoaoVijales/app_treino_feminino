@@ -1,9 +1,10 @@
+"use client";
 import React from 'react';
 import { Check } from 'lucide-react';
 import { UserData } from '../types';
 
 interface OnboardingScreenProps {
-  setCurrentScreen: (screen: string) => void;
+  setCurrentScreen: (screen: 'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active') => void;
   userData: UserData;
   setUserData: React.Dispatch<React.SetStateAction<UserData>>;
   onboardingStep: number;
@@ -19,6 +20,7 @@ interface OnboardingScreenProps {
     question?: string;
     options?: { value: string; label: string; icon: string; }[];
   }[];
+  onComplete: () => void; // Add the missing onComplete prop
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
@@ -30,6 +32,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   handleOnboardingNext,
   handleOnboardingBack,
   onboardingScreens,
+  onComplete, // Destructure onComplete
 }) => {
   const screen = onboardingScreens[onboardingStep];
   return (

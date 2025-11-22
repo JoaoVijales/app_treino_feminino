@@ -18,12 +18,12 @@ import { TodayWorkoutExercise } from '../types';
 // USER PROFILES
 // ===========================
 
-export const getUserProfile = async (session: Session): Promise<UserProfile | null> => {
-    //console.log("Fetched user ID:", session.user.id);
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+    //console.log("Fetched user ID:", userId);
     const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .maybeSingle();
 
     if (error) {
@@ -70,10 +70,11 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Use
 // MENSTRUAL CYCLES
 // ===========================
 
-export const getMenstrualCycles = async (): Promise<MenstrualCycle[] | null> => {
+export const getMenstrualCycles = async (userId: string): Promise<MenstrualCycle[] | null> => {
     const { data, error } = await supabase
         .from('menstrual_cycles')
         .select('*')
+        .eq('user_id', userId) // Add filter by user_id
         .order('start_date_log', { ascending: false });
 
     if (error) {
@@ -269,10 +270,11 @@ export const getExerciseById = async (exerciseId: string): Promise<Exercise | nu
 // USER WORKOUT SESSIONS
 // ===========================
 
-export const getUserWorkoutSessions = async (): Promise<UserWorkoutSession[] | null> => {
+export const getUserWorkoutSessions = async (userId: string): Promise<UserWorkoutSession[] | null> => {
     const { data, error } = await supabase
         .from('user_workout_sessions')
         .select('*')
+        .eq('user_id', userId) // Add filter by user_id
         .order('session_date', { ascending: false });
 
     if (error) {
@@ -316,6 +318,23 @@ export const addUserWorkoutSession = async (sessionData: UserWorkoutSession): Pr
     return data;
 };
 
+export const updateUserWorkoutSession = async (sessionId: string, intensity: number, feeling: string, notes: string): Promise<UserWorkoutSession | null> => {
+    const { data, error } = await supabase
+        .from('user_workout_sessions')
+        .update({ intensity_rating: intensity, feeling, notes })
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating user workout session:', error);
+        return null;
+    }
+
+    return data;
+};
+
+
 export const addUserWorkoutExerciseSessions = async (exerciseSessionsData: UserWorkoutExerciseSessions[]): Promise<UserWorkoutExerciseSessions[] | null> => {
     const promises = exerciseSessionsData.map(sessionData =>
         supabase
@@ -354,6 +373,22 @@ export const addUserWorkoutExerciseSets = async (exerciseSetsData: UserWorkoutEx
     }
 
     return results.map(res => res.data);
+};
+
+export const updateUserWorkoutExerciseSets = async (setId: string, updates: Partial<UserWorkoutExerciseSets>): Promise<UserWorkoutExerciseSets | null> => {
+    const { data, error } = await supabase
+        .from('user_workout_exercise_sets')
+        .update(updates)
+        .eq('id', setId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating user workout exercise set:', error);
+        return null;
+    }
+
+    return data;
 };
 
 

@@ -1,18 +1,24 @@
+"use client";
 import React, { useMemo } from 'react';
 import { Activity, Clock, Target, Info, Play, Settings, Calendar, BarChart3, Zap, Droplet, Sun, Moon } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
 import { CyclePhases } from '../types';
 import { getWorkoutsThisWeek, getConsistency, getStreak } from '../utils/stats';
 
-
-
 interface HomeScreenProps {
-  startWorkout: () => void;
-  setCurrentScreen: (screen: string) => void;
+  onNavigate: (screen: 'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active') => void;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { userData, todayWorkoutState, workoutHistory } = useFlowFit();
+
+  if (!userData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p>Loading user data...</p>
+      </div>
+    );
+  }
   const currentPhase = userData.currentPhase;
 
   const stats = useMemo(() => {
@@ -82,7 +88,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen 
           </div>
           <button className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
             <Settings className="w-6 h-6" 
-                onClick={() => setCurrentScreen('settings')}/>
+                onClick={() => onNavigate('settings')}/>
           </button>
         </div>
 
@@ -140,7 +146,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen 
           </div>
 
           <button
-            onClick={startWorkout}
+            onClick={() => onNavigate('workout-active')}
             className="w-full py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
           >
             <Play className="w-5 h-5" />
@@ -181,21 +187,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ startWorkout, setCurrentScreen 
             <span className="text-xs font-medium text-rose-500">Início</span>
           </button>
           <button
-            onClick={() => setCurrentScreen('calendar')}
+            onClick={() => onNavigate('calendar')}
             className="flex flex-col items-center gap-1"
           >
             <Calendar className="w-6 h-6 text-gray-400" />
             <span className="text-xs text-gray-400">Ciclo</span>
           </button>
           <button
-            onClick={() => setCurrentScreen('history')}
+            onClick={() => onNavigate('history')}
             className="flex flex-col items-center gap-1"
           >
             <BarChart3 className="w-6 h-6 text-gray-400" />
             <span className="text-xs text-gray-400">Progresso</span>
           </button>
           <button
-            onClick={() => setCurrentScreen('settings')}
+            onClick={() => onNavigate('settings')}
             className="flex flex-col items-center gap-1"
           >
             <Settings className="w-6 h-6 text-gray-400" />

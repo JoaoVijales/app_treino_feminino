@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "../src/index.css"; // Import global CSS from the old CRA project
+import "./globals.css"; // Import global CSS for Tailwind
 import { FlowFitProvider } from "../src/context/FlowFitContext"; // Import FlowFitProvider
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt">
       <body>
         <FlowFitProvider>{children}</FlowFitProvider>
       </body>

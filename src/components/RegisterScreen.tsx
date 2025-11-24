@@ -32,25 +32,35 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onLogin }) => {
   };
 
   return (
-    <AuthScreen title="Registrar" onBack={onLogin}>
+    <AuthScreen title="Crie sua conta" subtitle="Junte-se ao FlowFit AI!" onBack={onLogin}>
       <input
         type="email"
-        placeholder="E-mail"
+        placeholder="Seu e-mail"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="input input-bordered w-full mb-4"
+        className="w-full px-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-rose-400 outline-none text-lg"
       />
       <input
         type="password"
-        placeholder="Senha"
+        placeholder="Crie uma senha"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="input input-bordered w-full mb-4"
+        className="w-full px-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-rose-400 outline-none text-lg"
       />
-      <button onClick={handleRegister} className="btn btn-primary w-full" disabled={loading}>
-        {loading ? 'Registrando...' : 'Registrar'}
+      <button
+        onClick={handleRegister}
+        className="w-full px-6 py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all"
+        disabled={loading}
+      >
+        {loading ? 'Registrando...' : 'Cadastrar'}
       </button>
       {error && <p className="text-red-500 mt-2">{error}</p>}
+      <div className="text-center text-gray-600 text-sm mt-4">
+        Já tem uma conta?{' '}
+        <button onClick={onLogin} className="text-rose-500 hover:underline">
+          Faça login
+        </button>
+      </div>
     </AuthScreen>
   );
 };

@@ -1,247 +1,305 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server'; // Import NextResponse for easier JSON responses
-import { UserPlan } from '@/src/types/supabase'; // Import UserPlan type using alias
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ------------------------
-// Raw Body (adapted for Web Request object)
-// ------------------------
+// Helper: raw body from Request (App Router)
 async function getRawBody(req: Request): Promise<Buffer> {
   return Buffer.from(await req.arrayBuffer());
 }
 
-// ------------------------
-// Obter user_id via stripe_customer_id
-// ------------------------
+// Helper: get user_id by stripe_customer_id from user_plans
 async function getSupabaseUserId(stripeCustomerId: string): Promise<string | null> {
   const { data, error } = await supabaseAdmin
-    .from('user_plans') // Query user_plans table
-    .select('user_id') // Select user_id from user_plans
+    .from('user_plans')
+    .select('user_id')
     .eq('stripe_customer_id', stripeCustomerId)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') { // PGRST116 is 'no rows found'
+  if (error) {
     console.error('Erro ao obter user_id:', error);
+    return null;
   }
-
-  return data?.user_id ?? null; // Return user_id
+  // data may be null if none found
+  return (data as any)?.user_id ?? null;
 }
 
-// ------------------------
-// Webhook Handler for App Router POST requests
-// ------------------------
+// Helper: mark event id processed (very simple idempotency)
+// You should create a table stripe_events(event_id primary key, processed_at timestamp)
+async function markEventProcessed(eventId: string) {
+  const { error } = await supabaseAdmin
+    .from('stripe_events')
+    .insert({ event_id: eventId, processed_at: new Date().toISOString() })
+    .select();
+  if (error) {
+    // log but don't fail the webhook; duplicate inserts may cause conflict if primary key exists
+    console.warn('Could not mark event processed (maybe duplicate):', error.message);
+  }
+}
+
+async function isEventProcessed(eventId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('stripe_events')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('Error checking event processed:', error.message);
+    return false; // be conservative: if DB fails, allow processing (or you may prefer to reject)
+  }
+  return !!data;
+}
+
 export async function POST(req: Request) {
   const sig = req.headers.get('stripe-signature');
+  if (!sig) {
+    return new Response('Missing stripe-signature header', { status: 400 });
+  }
+  if (!webhookSecret) {
+    console.error('Missing STRIPE_WEBHOOK_SECRET env var');
+    return new Response('Webhook secret not configured', { status: 500 });
+  }
 
   let event: Stripe.Event;
-
   try {
     const rawBody = await getRawBody(req);
-
-    // ------------------------
-    // Validar assinatura Stripe (proteção anti-replay)
-    // ------------------------
-    event = stripe.webhooks.constructEvent(rawBody, sig!, webhookSecret, 300); // 300 is the tolerance in seconds
+    // Construct and verify signature
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err: any) {
-    console.error('❌ Erro na validação do webhook:', err.message);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    console.error('❌ Erro na validação do webhook:', err?.message ?? err);
+    return new Response(`Webhook Error: ${err?.message ?? 'invalid signature'}`, { status: 400 });
+  }
+
+  // Idempotency: don't reprocess events
+  try {
+    const already = await isEventProcessed(event.id);
+    if (already) {
+      console.log(`Event ${event.id} already processed — ignoring.`);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
+    }
+  } catch (e) {
+    console.warn('Erro ao checar idempotência:', (e as Error).message);
+    // Continue processing (or return 500 to be safe). Here we continue.
   }
 
   console.log(`📩 Evento recebido: ${event.type}`);
 
   try {
-    // =====================================================================
-    //  CHECKOUT SESSION (primeira compra)
-    // =====================================================================
+    // -----------------------
+    // checkout.session.completed
+    // -----------------------
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-
-      const userId = session.metadata?.user_id;
-      const customerId = session.customer as string;
-      const subscriptionId = session.subscription as string;
+      const userId = session.metadata?.user_id as string | undefined;
+      const customerId = typeof session.customer === 'string' ? session.customer : (session.customer as any)?.id;
+      const subscriptionId = typeof session.subscription === 'string' ? session.subscription : (session.subscription as any)?.id;
 
       if (!userId || !customerId) {
-        console.warn('⚠️ Missing user_id or customerId on metadata');
-        return NextResponse.json({ received: true }, { status: 200 });
+        console.warn('⚠️ Missing user_id or customerId on metadata/session');
+        // Mark event processed to avoid retrying repeatedly (you may want a different strategy)
+        await markEventProcessed(event.id);
+        return new Response(JSON.stringify({ received: true }), { status: 200 });
       }
 
-      // Check if user exists in our user_profiles table
-      const { data: userProfileData, error: userProfileError } = await supabaseAdmin
-        .from('user_profiles')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (userProfileError) {
-        console.error('Error fetching user profile for refund check:', userProfileError.message);
-        // Continue, but if the user_id from metadata is invalid, the upsert might fail later.
-        // For now, let the upsert proceed, and handle refund only if userProfileData is definitively null.
+      // Fetch line items explicitly (checkout.session.* webhooks normally não incluem line_items)
+      let stripeProductId: string | null = null;
+      let stripePriceId: string | null = null;
+      try {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id as string, { limit: 1 });
+        const first = lineItems.data[0];
+        if (first) {
+          stripeProductId = typeof first.price?.product === 'string' ? first.price.product as string :  null;
+          stripePriceId = typeof first.price?.id === 'string' ? first.price.id : null;
+        }
+      } catch (liErr: any) {
+        console.warn('Could not fetch line items:', liErr?.message ?? liErr);
       }
 
-      if (!userProfileData) {
-        console.warn(`⚠️ User with ID ${userId} not found in user_profiles. Attempting to refund payment.`);
-        // Attempt to refund
-        if (session.payment_intent) {
-          try {
-            await stripe.refunds.create({
-              payment_intent: session.payment_intent as string,
-              reason: 'requested_by_customer', // Or 'fraudulent' if it's really an unknown user
-            });
-            console.log(`✅ Payment refunded for session ${session.id} due to unknown user.`);
-            return NextResponse.json({ error: 'User not found. Payment refunded.' }, { status: 400 });
-          } catch (refundError: any) {
-            console.error('❌ Error refunding payment:', refundError.message);
-            return NextResponse.json({ error: 'User not found. Failed to refund payment.' }, { status: 500 });
-          }
-        } else {
-          console.warn(`⚠️ Cannot refund payment for session ${session.id} as payment_intent is missing.`);
-          return NextResponse.json({ error: 'User not found. Payment intent missing for refund.' }, { status: 400 });
+      // Optional: you could fetch the subscription to get accurate trial/current_period dates
+      let subscriptionObj: Stripe.Subscription | null = null;
+      if (subscriptionId) {
+        try {
+          subscriptionObj = await stripe.subscriptions.retrieve(subscriptionId);
+        } catch (subErr: any) {
+          console.warn('Could not retrieve subscription:', subErr?.message ?? subErr);
         }
       }
 
-      // Vincula customer ao usuário (REMOVED: user_profiles does not have stripe_customer_id)
-      // O vínculo entre user_id e customerId é mantido na tabela user_plans através dos eventos de assinatura.
-      console.log(`✅ Checkout concluído: user ${userId} -> customer ${customerId}. O vínculo será mantido em user_plans.`);
+      // Check that user exists in user_profiles (or whatever source of truth)
+      const { data: userProfile, error: userProfileError } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
 
-      // Extract line item details
-      const lineItem = session.line_items?.data[0];
-      const stripeProductId = lineItem?.price?.product as string | undefined;
-      const stripePriceId = lineItem?.price?.id as string | undefined;
+      if (userProfileError) {
+        console.error('Error fetching user profile:', userProfileError.message);
+        // Decide whether to continue or abort. We'll mark processed and return 200 to avoid retries,
+        // but you could also alert/devOps or schedule a retry workflow.
+        await markEventProcessed(event.id);
+        return new Response(JSON.stringify({ error: 'Error fetching user profile' }), { status: 200 });
+      }
 
-      const userPlanData: Partial<UserPlan> = {
+      if (!userProfile) {
+        // User not found — dangerous to auto-refund. Instead: create a record for manual review.
+        console.warn(`User ${userId} not found in user_profiles. Flagging for review.`);
+        await supabaseAdmin.from('stripe_unmatched_sessions').insert({
+          session_id: session.id,
+          stripe_customer_id: customerId,
+          metadata: session.metadata ?? {},
+          received_at: new Date().toISOString(),
+        });
+
+        // OPTIONAL: automatic refund (commented — use with care)
+        // if (session.payment_intent) {
+        //   await stripe.refunds.create({ payment_intent: session.payment_intent as string, reason: 'requested_by_customer' });
+        // }
+
+        await markEventProcessed(event.id);
+        return new Response(JSON.stringify({ received: true }), { status: 200 });
+      }
+
+      // Build user_plans object (use subscriptionObj if available for accurate fields)
+      const userPlanRecord: any = {
         user_id: userId,
         stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId, // Use subscriptionId from session
+        stripe_subscription_id: subscriptionId ?? null,
         stripe_product_id: stripeProductId,
         stripe_price_id: stripePriceId,
-        // For checkout.session.completed, if payment is successful and it's a subscription, status is active or trialing
-        status: session.mode === 'subscription' && session.payment_status === 'paid' ? 'active' : 'incomplete',
-        current_period_start: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null, // Using expires_at as a placeholder
-        current_period_end: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null, // Using expires_at as a placeholder
-        // trial_start and trial_end are typically from the subscription object, which will be handled by customer.subscription.created/updated
+        status: subscriptionObj ? subscriptionObj.status : (session.mode === 'subscription' ? 'incomplete' : 'unknown'),
+        current_period_start: subscriptionObj ? new Date(subscriptionObj.current_period_start * 1000).toISOString() : null,
+        current_period_end: subscriptionObj ? new Date(subscriptionObj.current_period_end * 1000).toISOString() : null,
+        trial_start: subscriptionObj && subscriptionObj.trial_start ? new Date(subscriptionObj.trial_start * 1000).toISOString() : null,
+        trial_end: subscriptionObj && subscriptionObj.trial_end ? new Date(subscriptionObj.trial_end * 1000).toISOString() : null,
         updated_at: new Date().toISOString(),
       };
 
-      const { error: upsertError } = await supabaseAdmin.from('user_plans').upsert(userPlanData, {
-        onConflict: 'user_id', // Update if user_id already exists
-        ignoreDuplicates: false, // Ensure update happens
-      });
+      const { error: upsertErr } = await supabaseAdmin
+        .from('user_plans')
+        .upsert(userPlanRecord, { onConflict: 'user_id' });
 
-      if (upsertError) {
-        console.error('❌ Erro ao atualizar user_plans no checkout.session.completed:', upsertError.message);
-        return NextResponse.json({ error: 'Failed to update user plan' }, { status: 500 });
+      if (upsertErr) {
+        console.error('Erro upserting user_plans:', upsertErr.message);
+        // mark processed to avoid retries or decide to not mark to retry
+        await markEventProcessed(event.id);
+        return new Response(JSON.stringify({ error: 'Failed to upsert user_plans' }), { status: 500 });
       }
 
-      console.log(`✅ user_plans atualizado para user ${userId} no evento checkout.session.completed.`);
-
-      return NextResponse.json({ received: true }, { status: 200 });
+      await markEventProcessed(event.id);
+      console.log(`✅ user_plans atualizado para user ${userId} (checkout.session.completed).`);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
 
-    // =====================================================================
-    //  PAGAMENTO ASSÍNCRONO (PIX / BOLETO)
-    // =====================================================================
+    // -----------------------
+    // checkout.session.async_payment_succeeded / failed
+    // -----------------------
     if (event.type === 'checkout.session.async_payment_succeeded') {
       const session = event.data.object as Stripe.Checkout.Session;
-      console.log(`💸 Pagamento PIX/BOLETO confirmado para sessão: ${session.id}`);
-      return NextResponse.json({ received: true }, { status: 200 });
+      console.log(`💸 Pagamento assíncrono OK para sessão ${session.id}`);
+      await markEventProcessed(event.id);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
-
     if (event.type === 'checkout.session.async_payment_failed') {
       const session = event.data.object as Stripe.Checkout.Session;
-      console.log(`❌ Pagamento PIX/BOLETO falhou: ${session.id}`);
-      return NextResponse.json({ received: true }, { status: 200 });
+      console.log(`❌ Pagamento assíncrono FALHOU para sessão ${session.id}`);
+      await markEventProcessed(event.id);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
 
-    // =====================================================================
-    //  ASSINATURAS (criação, atualização, pausa, cancelamento)
-    // =====================================================================
-    if (
-      event.type.startsWith('customer.subscription.')
-    ) {
+    // -----------------------
+    // customer.subscription.* (create, updated, deleted)
+    // -----------------------
+    if (event.type.startsWith('customer.subscription.')) {
       const subscription = event.data.object as Stripe.Subscription;
-      const customerId = subscription.customer as string;
-
+      const customerId = typeof subscription.customer === 'string' ? subscription.customer : (subscription.customer as any)?.id;
       const userId = await getSupabaseUserId(customerId);
-
       if (!userId) {
-        console.warn(`⚠️ Nenhum user associado ao customer ${customerId}`);
-        return NextResponse.json({ received: true }, { status: 200 });
+        console.warn(`Nenhum user associado ao customer ${customerId}`);
+        await markEventProcessed(event.id);
+        return new Response(JSON.stringify({ received: true }), { status: 200 });
       }
 
-      console.log(`🔄 Sincronizando assinatura para user ${userId}`);
+      // Upsert subscription info
+      const priceItem = subscription.items?.data?.[0]?.price;
+      const productId = priceItem && typeof priceItem.product === 'string' ? priceItem.product : null;
+      const priceId = priceItem?.id ?? null;
 
-      await supabaseAdmin.from('user_plans').upsert({
+      const upsertObj: any = {
         user_id: userId,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
         status: subscription.status,
-        // TODO: Ensure stripe_product_id and stripe_price_id are correctly extracted and updated
-        // The original had 'plan_id: subscription.items.data[0].price.id', which should map to stripe_price_id
-        stripe_price_id: subscription.items.data[0].price.id,
-        // If product ID is needed, it typically comes from subscription.items.data[0].price.product
-        stripe_product_id: subscription.items.data[0].price.product as string, // Ensure it's treated as string ID
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        canceled_at: subscription.canceled_at
-          ? new Date(subscription.canceled_at * 1000).toISOString()
-          : null,
-        trial_start: subscription.trial_start
-          ? new Date(subscription.trial_start * 1000).toISOString()
-          : null,
-        trial_end: subscription.trial_end
-          ? new Date(subscription.trial_end * 1000).toISOString()
-          : null,
-      }, {
-        onConflict: 'stripe_subscription_id',
-      });
+        stripe_price_id: priceId,
+        stripe_product_id: productId,
+        current_period_start: subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null,
+        current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null,
+        cancel_at_period_end: !!subscription.cancel_at_period_end,
+        canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+        trial_start: subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null,
+        trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      };
 
-      console.log(`✅ Assinatura sincronizada: ${subscription.id}`);
-      return NextResponse.json({ received: true }, { status: 200 });
+      const { error: upsertErr } = await supabaseAdmin.from('user_plans').upsert(upsertObj, { onConflict: 'stripe_subscription_id' });
+      if (upsertErr) {
+        console.error('Erro ao atualizar assinatura no user_plans:', upsertErr.message);
+      } else {
+        console.log(`✅ Assinatura sincronizada: ${subscription.id}`);
+      }
+
+      await markEventProcessed(event.id);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
 
-    // =====================================================================
-    //  FATURAS
-    // =====================================================================
+    // -----------------------
+    // invoice.payment_succeeded / failed
+    // -----------------------
     if (event.type === 'invoice.payment_succeeded') {
       const invoice = event.data.object as Stripe.Invoice;
-      console.log(`💳 Pagamento confirmado da invoice ${invoice.id}`);
+      console.log(`💳 invoice.payment_succeeded: ${invoice.id}`);
+      // Você pode atualizar faturas, registrar cobranças, etc.
+      await markEventProcessed(event.id);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
-
     if (event.type === 'invoice.payment_failed') {
       const invoice = event.data.object as Stripe.Invoice;
-      console.log(`⚠️ Pagamento falhou da invoice ${invoice.id}`);
+      console.log(`⚠️ invoice.payment_failed: ${invoice.id}`);
+      // Marcar o usuário, enviar e-mail, etc.
+      await markEventProcessed(event.id);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
 
-    // =====================================================================
-    //  PREÇOS E PRODUTOS (opcional)
-    // =====================================================================
+    // -----------------------
+    // price/product changes (opcional)
+    // -----------------------
     if (event.type.startsWith('price.') || event.type.startsWith('product.')) {
       console.log(`ℹ️ Evento de catálogo: ${event.type}`);
+      await markEventProcessed(event.id);
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
 
-    // =====================================================================
-    // EVENTO NÃO TRATADO
-    // =====================================================================
-    else {
-      console.log(`🤷 Evento ignorado: ${event.type}`);
-    }
+    // -----------------------
+    // default: evento não tratado
+    // -----------------------
+    console.log(`🤷 Evento ignorado: ${event.type}`);
+    await markEventProcessed(event.id);
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
 
   } catch (err: any) {
     console.error('❌ Erro ao processar webhook:', err);
-    return NextResponse.json({ error: 'Internal webhook error' }, { status: 500 });
+    // Não envie stack traces ao Stripe. Retorne 500 para tentar novamente (dependendo do erro).
+    return new Response(JSON.stringify({ error: 'Internal webhook error' }), { status: 500 });
   }
-
-  return NextResponse.json({ received: true }, { status: 200 });
 }

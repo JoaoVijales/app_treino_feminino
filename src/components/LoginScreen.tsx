@@ -30,31 +30,40 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onRegister, onForgotPassword 
   };
 
   return (
-    <AuthScreen title="Login">
+    <AuthScreen title="Bem-vindo(a) de volta!" subtitle="Faça login para continuar">
       <input
         type="email"
-        placeholder="E-mail"
+        placeholder="Seu e-mail"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="input input-bordered w-full mb-4"
+        className="w-full px-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-rose-400 outline-none text-lg"
       />
       <input
         type="password"
-        placeholder="Senha"
+        placeholder="Sua senha"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="input input-bordered w-full mb-4"
+        className="w-full px-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-rose-400 outline-none text-lg"
       />
-      <button onClick={handleLogin} className="btn btn-primary w-full" disabled={loading}>
+      <button
+        onClick={handleLogin}
+        className="w-full px-6 py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all"
+        disabled={loading}
+      >
         {loading ? 'Entrando...' : 'Entrar'}
       </button>
       {error && <p className="text-red-500 mt-2">{error}</p>}
-      <button onClick={onRegister} className="btn btn-link w-full mt-2">
-        Não tem uma conta? Registre-se
-      </button>
-      <button onClick={onForgotPassword} className="btn btn-link w-full mt-2">
-        Esqueceu a senha?
-      </button>
+      <div className="text-center text-gray-600 text-sm mt-4">
+        <button onClick={onForgotPassword} className="text-rose-500 hover:underline">
+          Esqueceu sua senha?
+        </button>
+      </div>
+      <div className="text-center text-gray-600 text-sm mt-2">
+        Não tem uma conta?{' '}
+        <button onClick={onRegister} className="text-rose-500 hover:underline">
+          Cadastre-se
+        </button>
+      </div>
     </AuthScreen>
   );
 };

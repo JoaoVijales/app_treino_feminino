@@ -44,7 +44,9 @@ export const useFlowFitData = () => {
       if (user) {
         const profile = await getUserProfile(user.id);
         setUserProfile(profile);
-        await fetchUserPlan(user.id); // Fetch user plan after profile
+        if (profile) { // Fetch user plan only if profile exists
+          await fetchUserPlan(user.id);
+        }
 
         // Calculate menstrual cycle phase
         if (profile?.last_period && profile?.cycle_regular) {

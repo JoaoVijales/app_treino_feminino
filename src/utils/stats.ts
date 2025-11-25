@@ -54,73 +54,52 @@ export const getStreak = (workoutHistory: UserWorkoutSession[]): number => {
     return 0;
   }
 
-  const sortedHistory = [...workoutHistory].sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
-
-  let streak = 0;
-  let currentWeek = getStartOfWeek(new Date());
-  currentWeek.setHours(0, 0, 0, 0);
-
-  // Check if there is a workout in the current week
-  const hasWorkoutThisWeek = sortedHistory.some(session => {
-    const sessionDate = new Date(session.session_date);
-    const startOfSessionWeek = getStartOfWeek(sessionDate);
-    startOfSessionWeek.setHours(0, 0, 0, 0);
-    return startOfSessionWeek.getTime() === currentWeek.getTime();
-  });
-
-  if (!hasWorkoutThisWeek) {
-    // If no workout this week, check if there was a workout last week
-    const lastWeek = new Date(currentWeek);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    const hasWorkoutLastWeek = sortedHistory.some(session => {
-        const sessionDate = new Date(session.session_date);
-        const startOfSessionWeek = getStartOfWeek(sessionDate);
-        startOfSessionWeek.setHours(0, 0, 0, 0);
-        return startOfSessionWeek.getTime() === lastWeek.getTime();
-    });
-
-    if(!hasWorkoutLastWeek) {
-        return 0;
-    }
-  }
-  
   const uniqueWeeksWithWorkouts = new Set<number>();
-  sortedHistory.forEach(session => {
+  workoutHistory.forEach(session => {
     const sessionDate = new Date(session.session_date);
     const startOfWeek = getStartOfWeek(sessionDate);
     startOfWeek.setHours(0, 0, 0, 0);
     uniqueWeeksWithWorkouts.add(startOfWeek.getTime());
   });
 
-  const sortedWeeks = Array.from(uniqueWeeksWithWorkouts).sort((a, b) => b - a);
+  const sortedUniqueWeeks = Array.from(uniqueWeeksWithWorkouts).sort((a, b) => b - a); // Newest first
 
   let today = new Date();
-  // Adjust for the case where today is Sunday, so the "current week" is correct
-  if (today.getDay() === 0) {
-      today.setDate(today.getDate() - 1);
+  let currentWeekStart = getStartOfWeek(today);
+  currentWeekStart.setHours(0, 0, 0, 0);
+
+  let streak = 0;
+  let expectedWeekToCheck = new Date(currentWeekStart); // Start checking from current week
+
+  // First, check if there's a workout in the current week or the immediate last week to start a streak
+  let foundValidStart = false;
+  if (sortedUniqueWeeks.includes(currentWeekStart.getTime())) {
+    foundValidStart = true;
+  } else {
+    const lastWeekStart = new Date(currentWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    if (sortedUniqueWeeks.includes(lastWeekStart.getTime())) {
+      foundValidStart = true;
+      expectedWeekToCheck = lastWeekStart; // Start counting from last week if current week is empty
+    }
   }
 
-  let weekOfLatestWorkout = getStartOfWeek(new Date(sortedWeeks[0]));
-  let currentWeekStart = getStartOfWeek(today);
-
-  // If the latest workout is not in the current or last week, streak is 0
-  if (currentWeekStart.getTime() - weekOfLatestWorkout.getTime() > 7 * 24 * 60 * 60 * 1000) {
-      return 0;
+  if (!foundValidStart) {
+    return 0; // No workout in current or last week, so no streak
   }
   
-  for (let i = 0; i < sortedWeeks.length; i++) {
-    const week = new Date(sortedWeeks[i]);
-    const expectedWeek = new Date(currentWeekStart);
-    expectedWeek.setDate(expectedWeek.getDate() - i * 7);
-
-    const startOfExpectedWeek = getStartOfWeek(expectedWeek);
-    startOfExpectedWeek.setHours(0, 0, 0, 0);
-
-    if (week.getTime() === startOfExpectedWeek.getTime()) {
+  // Now, iterate backwards from the `expectedWeekToCheck`
+  for (let i = 0; ; i++) { // Infinite loop, will break internally
+    const targetWeekTimestamp = expectedWeekToCheck.getTime();
+    
+    if (sortedUniqueWeeks.includes(targetWeekTimestamp)) {
       streak++;
     } else {
-      break;
+      break; // Streak broken
     }
+    
+    // Move to the previous week for the next iteration
+    expectedWeekToCheck.setDate(expectedWeekToCheck.getDate() - 7);
   }
 
   return streak;

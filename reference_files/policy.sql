@@ -117,17 +117,56 @@ FOR INSERT WITH CHECK (
 );
 
 
-ALTER TABLE user_plan ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "deny_client_insert" ON user_plan
-FOR INSERT
-TO authenticated, anon
-USING (false)
-WITH CHECK (false);
 
-CREATE POLICY "server_insert" ON user_plan
+ALTER TABLE user_plans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "user_select_own_plan"
+ON user_plans
+FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "service_role_insert_user_plans"
+ON user_plans
 FOR INSERT
+TO service_role
+WITH CHECK (true);
+
+CREATE POLICY "service_role_delete_user_plans"
+ON user_plans
+FOR DELETE
+TO service_role
+USING (true);
+
+CREATE POLICY "service_role_update_user_plans"
+ON user_plans
+FOR UPDATE
 TO service_role
 USING (true)
 WITH CHECK (true);
 
+
+
+
+ALTER TABLE stripe_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "stripe_events_no_select" ON stripe_events
+FOR SELECT
+TO public
+USING (false);
+
+CREATE POLICY "stripe_events_no_insert" ON stripe_events
+FOR INSERT
+TO public
+WITH CHECK (false);
+
+CREATE POLICY "stripe_events_no_update" ON stripe_events
+FOR UPDATE
+TO public
+USING (false)
+WITH CHECK (false);
+
+CREATE POLICY "stripe_events_no_delete" ON stripe_events
+FOR DELETE
+TO public
+USING (false);
 

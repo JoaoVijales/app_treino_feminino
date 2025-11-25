@@ -39,11 +39,18 @@ create table if not exists user_plans (
     updated_at timestamp with time zone default now()
 );
 
-alter table user_plans enable row level security;
+create table if not exists stripe_events (
+  event_id text primary key,
+  processed_at timestamptz default now()
+);
 
-create policy "Users can view their own plan."
-  on user_plans for select
-  using (auth.uid() = user_id);
+create table if not exists stripe_unmatched_sessions (
+  id uuid primary key default uuid_generate_v4(),
+  session_id text not null,
+  stripe_customer_id text not null,
+  metadata jsonb default '{}'::jsonb,
+  received_at timestamp with time zone default now()
+);
 
 
 -- ===========================

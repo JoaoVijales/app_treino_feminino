@@ -64,11 +64,10 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
 
 
 const FlowFitApp: React.FC = () => {
-  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan, updateUserProfile, initiateCheckoutSession } = useFlowFit(); // Access userPlan and updateUserProfile
+  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan, updateUserProfile, initiateCheckoutSession } = useFlowFit();
   const [currentScreen, setCurrentScreen] = useState<'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active' | 'subscription-required'>(
     'login'
   );
-  const [showMenu, setShowMenu] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
 
   // Onboarding specific states
@@ -77,10 +76,10 @@ const FlowFitApp: React.FC = () => {
     name: '',
     goal: '',
     equipment: '',
-    cycle_regular: '', // Updated to snake_case
-    last_period: '',    // Updated to snake_case
-    currentPhase: null, // Initialize
-    cycleDay: 0, // Initialize
+    cycle_regular: '',
+    last_period: '',
+    currentPhase: null,
+    cycleDay: 0,
   });
 
   // WorkoutActiveScreen specific states
@@ -249,84 +248,44 @@ const FlowFitApp: React.FC = () => {
     }
   };
 
-  const cyclePhaseIcon = () => {
-    switch (currentPhase) {
-      case 'menstrual':
-        return <Droplet size={20} color="#EF4444" />; // Red
-      case 'follicular':
-        return <Zap size={20} color="#3B82F6" />; // Blue
-      case 'ovulatory':
-        return <Sun size={20} color="#F59E0B" />; // Yellow/Orange
-      case 'luteal':
-        return <Moon size={20} color="#8B5CF6" />; // Purple
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="flex flex-col h-screen">
-      {session && userProfile?.onboarding_completed && (
-        <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">FlowFit</h1>
-          <div className="flex items-center space-x-4">
-            {currentPhase && (
-              <div className="flex items-center">
-                {cyclePhaseIcon()}
-                <span className="ml-2 capitalize">{currentPhase}</span>
-              </div>
-            )}
-            <button onClick={() => setShowMenu(!showMenu)} className="focus:outline-none">
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 6h16M4 12h16M4 18h16"
-                ></path>
-              </svg>
-            </button>
-          </div>
-          {showMenu && (
-            <div className="absolute top-16 right-4 bg-white text-gray-800 shadow-lg rounded-md p-4 z-10">
-              <button onClick={() => { setCurrentScreen('home'); setShowMenu(false); }} className="block w-full text-left py-2 hover:bg-gray-100">Home</button>
-              <button onClick={() => { setCurrentScreen('history'); setShowMenu(false); }} className="block w-full text-left py-2 hover:bg-gray-100">Histórico</button>
-              <button onClick={() => { setCurrentScreen('calendar'); setShowMenu(false); }} className="block w-full text-left py-2 hover:bg-gray-100">Calendário</button>
-              <button onClick={() => { setCurrentScreen('settings'); setShowMenu(false); }} className="block w-full text-left py-2 hover:bg-gray-100">Configurações</button>
-              <button onClick={() => { signOut(); setShowMenu(false); }} className="block w-full text-left py-2 hover:bg-gray-100 text-red-500">Sair</button>
-            </div>
-          )}
-        </header>
-      )}
-
       <main className="flex-grow">
         {renderScreen()}
       </main>
 
       {session && userProfile?.onboarding_completed && (
-        <footer className="bg-gray-800 text-white p-4 flex justify-around items-center">
-          <button onClick={() => setCurrentScreen('home')} className="flex flex-col items-center">
-            <Home size={24} />
-            <span className="text-xs">Home</span>
-          </button>
-          <button onClick={() => setCurrentScreen('history')} className="flex flex-col items-center">
-            <BarChart3 size={24} />
-            <span className="text-xs">Histórico</span>
-          </button>
-          <button onClick={() => setCurrentScreen('calendar')} className="flex flex-col items-center">
-            <Calendar size={24} />
-            <span className="text-xs">Calendário</span>
-          </button>
-          <button onClick={() => setCurrentScreen('settings')} className="flex flex-col items-center">
-            <Settings size={24} />
-            <span className="text-xs">Configurações</span>
-          </button>
+        <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4">
+          <div className="flex justify-around max-w-md mx-auto">
+            <button 
+              onClick={() => setCurrentScreen('home')}
+              className="flex flex-col items-center gap-1"
+            >
+              <Home className={`w-6 h-6 ${currentScreen === 'home' ? 'text-rose-500' : 'text-gray-400'}`} />
+              <span className={`text-xs ${currentScreen === 'home' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Início</span>
+            </button>
+            <button 
+              onClick={() => setCurrentScreen('calendar')}
+              className="flex flex-col items-center gap-1"
+            >
+              <Calendar className={`w-6 h-6 ${currentScreen === 'calendar' ? 'text-rose-500' : 'text-gray-400'}`} />
+              <span className={`text-xs ${currentScreen === 'calendar' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Ciclo</span>
+            </button>
+            <button 
+              onClick={() => setCurrentScreen('history')}
+              className="flex flex-col items-center gap-1"
+            >
+              <BarChart3 className={`w-6 h-6 ${currentScreen === 'history' ? 'text-rose-500' : 'text-gray-400'}`} />
+              <span className={`text-xs ${currentScreen === 'history' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Progresso</span>
+            </button>
+            <button 
+              onClick={() => setCurrentScreen('settings')}
+              className="flex flex-col items-center gap-1"
+            >
+              <Settings className={`w-6 h-6 ${currentScreen === 'settings' ? 'text-rose-500' : 'text-gray-400'}`} />
+              <span className={`text-xs ${currentScreen === 'settings' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Ajustes</span>
+            </button>
+          </div>
         </footer>
       )}
     </div>

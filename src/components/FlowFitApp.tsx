@@ -64,7 +64,7 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
 
 
 const FlowFitApp: React.FC = () => {
-  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan, updateUserProfile } = useFlowFit(); // Access userPlan and updateUserProfile
+  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan, updateUserProfile, initiateCheckoutSession } = useFlowFit(); // Access userPlan and updateUserProfile
   const [currentScreen, setCurrentScreen] = useState<'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active' | 'subscription-required'>(
     'login'
   );
@@ -126,8 +126,15 @@ const FlowFitApp: React.FC = () => {
           setCurrentScreen('home');
         } else if (userPlan) {
           setCurrentScreen('subscription-required');
-        } else {
-          setCurrentScreen('home');
+        } else { // No active plan and no userPlan object (never subscribed, but completed onboarding)
+          // Initiate checkout for users who completed onboarding before subscription was implemented
+          // This ensures they are directed to subscribe if they haven't already.
+          if (userProfile?.user_id) { // Ensure userProfile and its ID are available
+            initiateCheckoutSession(userProfile.user_id);
+          } else {
+            console.error("User profile or user ID not available to initiate checkout after onboarding.");
+            setCurrentScreen('home'); // Fallback
+          }
         }
       }
     }

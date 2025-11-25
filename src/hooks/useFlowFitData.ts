@@ -125,6 +125,43 @@ export const useFlowFitData = () => {
     setCurrentWorkout(workout);
   };
 
+  const initiateCheckoutSession = useCallback(async (userId: string) => {
+    const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
+    if (!priceId) {
+      console.error('Stripe Price ID is not configured.');
+      setError('Stripe Price ID is not configured.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({ userId, priceId }),
+      });
+
+      const { sessionId, url, error: checkoutError } = await response.json();
+      if (checkoutError) {
+        throw new Error(checkoutError);
+      }
+      if (url) {
+        window.location.href = url;
+      } else {
+        console.error('Stripe checkout URL not received.');
+        setError('Failed to get Stripe checkout URL.');
+      }
+    } catch (err: any) {
+      console.error('Failed to initiate checkout:', err.message);
+      setError('Failed to initiate checkout: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(()=>{console.log(userProfile?.user_id)}, [userProfile])
 
   return {

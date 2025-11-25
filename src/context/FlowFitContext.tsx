@@ -27,6 +27,7 @@ interface FlowFitContextType {
   signOut: () => Promise<void>;
   supabase: any; // Add supabase instance to context
   updateUserProfile: (userId: string, updates: Partial<UserProfile>) => Promise<{ data: UserProfile | null, error: PostgrestError | null }>; // Corrected return type
+  initiateCheckoutSession: (userId: string) => Promise<void>;
 }
 
 const FlowFitContext = createContext<FlowFitContextType | undefined>(undefined);
@@ -49,6 +50,7 @@ export const FlowFitProvider: React.FC<{ children: ReactNode }> = ({ children })
     fetchMenstrualCycles,
     selectWorkout,
     updateUserProfile, // Destructure updateUserProfile
+    initiateCheckoutSession, // Add this
   } = useFlowFitData();
 
   const signOut = async () => {
@@ -78,6 +80,7 @@ export const FlowFitProvider: React.FC<{ children: ReactNode }> = ({ children })
         signOut,
         supabase,
         updateUserProfile, // Provide updateUserProfile in context value
+        initiateCheckoutSession, // Provide initiateCheckoutSession in context value
       }}
     >
       {children}

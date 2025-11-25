@@ -170,3 +170,17 @@ FOR DELETE
 TO public
 USING (false);
 
+
+alter table stripe_unmatched_sessions enable row level security;
+
+create policy "stripe_unmatched_no_select" on stripe_unmatched_sessions
+  for select using (false);
+
+create policy "stripe_unmatched_no_insert" on stripe_unmatched_sessions
+  for insert with check (false);
+
+create policy "stripe_unmatched_no_update" on stripe_unmatched_sessions
+  for update using (false) with check (false);
+
+create policy "stripe_unmatched_no_delete" on stripe_unmatched_sessions
+  for delete using (false);

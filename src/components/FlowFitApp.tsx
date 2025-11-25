@@ -109,22 +109,29 @@ const FlowFitApp: React.FC = () => {
   }, [session, fetchUserProfile]);
 
   useEffect(() => {
-    if (userProfile && !loading) {
-      if (!userProfile.onboarding_completed) {
+    if (!loading) { // Once loading is finished
+      if (!session) {
+        setCurrentScreen('login');
+      } else if (!userProfile) {
+        // Authenticated but no user profile found/created.
+        // This is a critical state for a user that is logged in.
+        // It implies they need to complete onboarding to create their profile.
+        setCurrentScreen('onboarding');
+      } else if (!userProfile.onboarding_completed) {
         setCurrentScreen('onboarding');
       } else {
         // Check subscription status
         const isActiveSubscriber = userPlan && (userPlan.status === 'active' || userPlan.status === 'trialing');
         if (isActiveSubscriber) {
           setCurrentScreen('home');
-        } else if (userPlan) { // If a plan exists but is not active (e.g., canceled, past_due)
+        } else if (userPlan) {
           setCurrentScreen('subscription-required');
-        } else { // No active plan and no userPlan object (never subscribed, but completed onboarding)
+        } else {
           setCurrentScreen('home');
         }
       }
     }
-  }, [userProfile, loading, userPlan]);
+  }, [loading, session, userProfile, userPlan]);
 
   const handleOnboardingNext = useCallback(async () => {
     const currentScreenConfig = onboardingScreensConfig[onboardingStep];

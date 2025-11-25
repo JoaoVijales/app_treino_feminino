@@ -4,6 +4,7 @@ import { useFlowFitData } from '../hooks/useFlowFitData';
 import { UserData, TodayWorkout } from '../types';
 import { UserProfile, UserWorkoutSession, MenstrualCycle, UserPlan } from '../types/supabase'; // Import UserPlan
 import { supabase } from '../utils/supabaseClient'; // Import supabase instance
+import { PostgrestError } from '@supabase/supabase-js';
 
 interface FlowFitContextType {
   userData: UserData | null;
@@ -25,7 +26,7 @@ interface FlowFitContextType {
   selectWorkout: (workout: TodayWorkout) => void;
   signOut: () => Promise<void>;
   supabase: any; // Add supabase instance to context
-  updateUserProfile: (userId: string, updates: Partial<UserProfile>) => Promise<void>; // Add updateUserProfile
+  updateUserProfile: (userId: string, updates: Partial<UserProfile>) => Promise<{ data: UserProfile | null, error: PostgrestError | null }>; // Corrected return type
 }
 
 const FlowFitContext = createContext<FlowFitContextType | undefined>(undefined);

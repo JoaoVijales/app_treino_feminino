@@ -37,20 +37,41 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 
 
 export const updateUserProfile = async (userId: string, profileData: Partial<UserProfile>): Promise<{ data: UserProfile | null, error: PostgrestError | null }> => {
-    const { data, error } = await supabase
+    // Attempt to update the profile first
+    const { data: updateData, error: updateError, count: updateCount } = await supabase
         .from('user_profiles')
-        .upsert(
-            { user_id: userId, ...profileData },
-            { onConflict: 'user_id' }
-        )
+        .update(profileData)
+        .eq('user_id', userId)
         .select()
         .single();
 
-    if (error) {
-        console.error('Error upserting user profile:', error);
+    if (updateError) {
+        // If the error is not a "row not found" type, log it.
+        // If it's a 404/row not found, it means the profile doesn't exist, and we proceed to insert.
+        if (updateError.code !== 'PGRST116') { // PGRST116 is 'No rows found' for single()
+            console.error('Error updating user profile:', updateError);
+            return { data: null, error: updateError };
+        }
     }
 
-    return { data: data as UserProfile | null, error };
+    // If updateData exists, it means the update was successful
+    if (updateData) {
+        return { data: updateData as UserProfile, error: null };
+    }
+
+    // If no row was updated (profile didn't exist), try to insert
+    const { data: insertData, error: insertError } = await supabase
+        .from('user_profiles')
+        .insert({ user_id: userId, ...profileData })
+        .select()
+        .single();
+
+    if (insertError) {
+        console.error('Error inserting user profile:', insertError);
+        return { data: null, error: insertError };
+    }
+
+    return { data: insertData as UserProfile, error: null };
 };
 
 

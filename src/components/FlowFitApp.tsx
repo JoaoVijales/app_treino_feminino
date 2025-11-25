@@ -43,8 +43,7 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
     options: [
       { value: "peso-corporal", label: "Apenas Peso Corporal", icon: "🤸‍♀️" },
       { value: "halteres", label: "Halteres", icon: "🏋️‍♀️" },
-      { value: "elasticos", label: "Elásticos de Resistência", icon: " elasticos" },
-      { value: "academia", label: "Equipamentos de Academia", icon: "💪" },
+      { value: "elasticos", label: "Elásticos de Resistência", icon: "🪢" },
     ],
   },
   {

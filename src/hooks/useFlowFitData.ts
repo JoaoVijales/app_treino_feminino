@@ -181,5 +181,6 @@ export const useFlowFitData = () => {
     fetchMenstrualCycles,
     selectWorkout,
     updateUserProfile, // Added updateUserProfile
+    initiateCheckoutSession, // Add this line
   };
 };

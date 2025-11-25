@@ -148,7 +148,20 @@ const FlowFitApp: React.FC = () => {
       if (userProfile?.user_id) {
         await updateUserProfile(userProfile.user_id, { onboarding_completed: true });
         fetchUserProfile(); // Re-fetch profile to update onboarding_completed status
-        setCurrentScreen('subscription-required'); // Redirect to subscription notice page
+        const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID; // TODO: Define NEXT_PUBLIC_STRIPE_PRICE_ID in your .env.local
+
+        const response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({ userId: userProfile.user_id, priceId }),
+        });
+
+        const { sessionId, url, error: checkoutError } = await response.json();
+        if (checkoutError) throw new Error(checkoutError);
+        window.location.href = url;
       }
     }
   }, [onboardingStep, onboardingUserData, userProfile, fetchUserProfile, updateUserProfile]);

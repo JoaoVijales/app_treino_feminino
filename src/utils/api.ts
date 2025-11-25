@@ -37,32 +37,20 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 
 
 export const updateUserProfile = async (userId: string, profileData: Partial<UserProfile>): Promise<{ data: UserProfile | null, error: PostgrestError | null }> => {
-    const { data: existing } = await supabase
-        .from("user_profiles")
-        .select("user_id")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-    if (!existing) {
-        const result = await supabase.from("user_profiles").insert({ user_id: userId, ...profileData });
-        if (result.error) {
-            console.error('Error creating user profile:', result.error);
-        }
-        return result;
-    }
-
-    const result = await supabase
+    const { data, error } = await supabase
         .from('user_profiles')
-        .update(profileData)
-        .eq('user_id', userId)
+        .upsert(
+            { user_id: userId, ...profileData },
+            { onConflict: 'user_id' }
+        )
         .select()
         .single();
 
-    if (result.error) {
-        console.error('Error updating user profile:', result.error);
+    if (error) {
+        console.error('Error upserting user profile:', error);
     }
 
-    return result;
+    return { data: data as UserProfile | null, error };
 };
 
 

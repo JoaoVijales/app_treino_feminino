@@ -71,34 +71,34 @@ const SubscriptionRequiredScreen: React.FC<SubscriptionRequiredScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h2 className="text-2xl font-bold mb-4">Assinatura Necessária</h2>
-      <p className="text-gray-700 text-center mb-6">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-areia p-4">
+      <h2 className="text-3xl font-bold mb-4 text-lavanda-profunda">Assinatura Necessária</h2>
+      <p className="text-grafite-suave text-center mb-6">
         Para acessar o conteúdo completo do aplicativo, por favor, assine ou renove sua assinatura.
       </p>
 
       {userPlan && (
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6 w-full max-w-sm">
-          <h3 className="text-lg font-semibold mb-2">Status da Assinatura:</h3>
-          <p>Status: <span className="font-semibold capitalize">{userPlan.status || 'inactive'}</span></p>
+        <div className="bg-white p-4 rounded-lg shadow-lg mb-6 w-full max-w-sm border border-cinza-claro">
+          <h3 className="text-xl font-semibold mb-2 text-lavanda-profunda">Status da Assinatura:</h3>
+          <p className="text-grafite-suave">Status: <span className="font-semibold capitalize">{userPlan.status || 'inactive'}</span></p>
           {userPlan.current_period_end && userPlan.status !== 'canceled' && (
-            <p>Renova em: {new Date(userPlan.current_period_end).toLocaleDateString()}</p>
+            <p className="text-grafite-suave">Renova em: {new Date(userPlan.current_period_end).toLocaleDateString()}</p>
           )}
           {userPlan.trial_end && userPlan.status === 'trialing' && (
-            <p>Teste termina em: {new Date(userPlan.trial_end).toLocaleDateString()}</p>
+            <p className="text-grafite-suave">Teste termina em: {new Date(userPlan.trial_end).toLocaleDateString()}</p>
           )}
           {userPlan.status === 'canceled' && (
-            <p className="text-red-500">Sua assinatura foi cancelada.</p>
+            <p className="text-coral-vital">Sua assinatura foi cancelada.</p>
           )}
           {userPlan.status === 'past_due' && (
-            <p className="text-yellow-600">Seu pagamento está atrasado.</p>
+            <p className="text-amarelo-suave">Seu pagamento está atrasado.</p>
           )}
         </div>
       )}
 
       <button
         onClick={handleManageSubscription}
-        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline w-full max-w-sm"
+        className="bg-lavanda-profunda hover:bg-lavanda-clara text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline w-full max-w-sm transition-colors duration-200"
         disabled={loading}
       >
         {loading ? 'Processando...' : (userPlan?.status === 'active' || userPlan?.status === 'trialing' ? 'Gerenciar Assinatura' : 'Assinar Agora / Renovar')}

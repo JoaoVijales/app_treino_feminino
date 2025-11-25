@@ -132,15 +132,15 @@ const FlowFitApp: React.FC = () => {
         [currentScreenConfig.field]: onboardingUserData[currentScreenConfig.field],
       };
       // For simplicity, we'll save step by step. A bulk save could be implemented later.
-      await updateUserProfile(userProfile.id, updatedProfile);
+      await updateUserProfile(userProfile.user_id, updatedProfile);
     }
 
     if (onboardingStep < onboardingScreensConfig.length - 1) {
       setOnboardingStep((prev) => prev + 1);
     } else {
       // Last step, mark onboarding as complete
-      if (userProfile?.id) {
-        await updateUserProfile(userProfile.id, { onboarding_completed: true });
+      if (userProfile?.user_id) {
+        await updateUserProfile(userProfile.user_id, { onboarding_completed: true });
         fetchUserProfile(); // Re-fetch profile to update onboarding_completed status
         setCurrentScreen('home');
       }

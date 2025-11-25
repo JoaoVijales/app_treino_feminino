@@ -124,6 +124,8 @@ export const useFlowFitData = () => {
     setCurrentWorkout(workout);
   };
 
+  useEffect(()=>{console.log(userProfile?.user_id)}, [userProfile])
+
   return {
     userData,
     userProfile,

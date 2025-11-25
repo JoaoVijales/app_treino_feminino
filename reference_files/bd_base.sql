@@ -21,7 +21,7 @@ create table if not exists user_profiles (
 
 create table if not exists user_plans (
     id uuid primary key default uuid_generate_v4(),
-    user_id uuid not null references auth.users(id) on delete cascade,
+    user_id uuid not null unique references auth.users(id) on delete cascade,
     stripe_customer_id text unique not null,
     stripe_subscription_id text unique,
     stripe_product_id text,

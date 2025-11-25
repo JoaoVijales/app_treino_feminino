@@ -64,7 +64,7 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
 
 
 const FlowFitApp: React.FC = () => {
-  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan } = useFlowFit(); // Access userPlan
+  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan, updateUserProfile } = useFlowFit(); // Access userPlan and updateUserProfile
   const [currentScreen, setCurrentScreen] = useState<'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active' | 'subscription-required'>(
     'login'
   );
@@ -132,7 +132,7 @@ const FlowFitApp: React.FC = () => {
         [currentScreenConfig.field]: onboardingUserData[currentScreenConfig.field],
       };
       // For simplicity, we'll save step by step. A bulk save could be implemented later.
-      // await updateUserProfile(userProfile.id, updatedProfile);
+      await updateUserProfile(userProfile.id, updatedProfile);
     }
 
     if (onboardingStep < onboardingScreensConfig.length - 1) {
@@ -140,12 +140,12 @@ const FlowFitApp: React.FC = () => {
     } else {
       // Last step, mark onboarding as complete
       if (userProfile?.id) {
-        // await updateUserProfile(userProfile.id, { onboarding_completed: true });
+        await updateUserProfile(userProfile.id, { onboarding_completed: true });
         fetchUserProfile(); // Re-fetch profile to update onboarding_completed status
         setCurrentScreen('home');
       }
     }
-  }, [onboardingStep, onboardingUserData, userProfile, fetchUserProfile]);
+  }, [onboardingStep, onboardingUserData, userProfile, fetchUserProfile, updateUserProfile]);
 
   const handleOnboardingBack = useCallback(() => {
     if (onboardingStep > 0) {

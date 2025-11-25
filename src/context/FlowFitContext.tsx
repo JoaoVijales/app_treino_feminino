@@ -25,6 +25,7 @@ interface FlowFitContextType {
   selectWorkout: (workout: TodayWorkout) => void;
   signOut: () => Promise<void>;
   supabase: any; // Add supabase instance to context
+  updateUserProfile: (userId: string, updates: Partial<UserProfile>) => Promise<void>; // Add updateUserProfile
 }
 
 const FlowFitContext = createContext<FlowFitContextType | undefined>(undefined);
@@ -46,6 +47,7 @@ export const FlowFitProvider: React.FC<{ children: ReactNode }> = ({ children })
     fetchUserWorkoutSessions,
     fetchMenstrualCycles,
     selectWorkout,
+    updateUserProfile, // Destructure updateUserProfile
   } = useFlowFitData();
 
   const signOut = async () => {
@@ -74,6 +76,7 @@ export const FlowFitProvider: React.FC<{ children: ReactNode }> = ({ children })
         selectWorkout,
         signOut,
         supabase,
+        updateUserProfile, // Provide updateUserProfile in context value
       }}
     >
       {children}

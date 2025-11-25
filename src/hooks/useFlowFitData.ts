@@ -107,6 +107,7 @@ export const useFlowFitData = () => {
         setCurrentWorkout(null);
         setCurrentPhase(null);
         setCycleDay(null);
+        setLoading(false); // Ensure loading is false after sign out/session loss
       }
     });
 

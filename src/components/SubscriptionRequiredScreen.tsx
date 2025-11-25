@@ -56,7 +56,7 @@ const SubscriptionRequiredScreen: React.FC<SubscriptionRequiredScreenProps> = ({
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
           },
-          body: JSON.stringify({ userId: userProfile.id, priceId }),
+          body: JSON.stringify({ userId: userProfile.user_id, priceId }),
         });
 
         const { sessionId, url, error: checkoutError } = await response.json();

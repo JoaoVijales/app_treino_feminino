@@ -48,7 +48,7 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
   },
   {
     title: "Seu ciclo menstrual é regular?",
-    field: "cycleRegular",
+    field: "cycle_regular",
     type: "options",
     options: [
       { value: "yes", label: "Sim, é regular", icon: "✅" },
@@ -57,7 +57,7 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
   },
   {
     title: "Quando foi sua última menstruação?",
-    field: "lastPeriod",
+    field: "last_period",
     type: "date",
   },
 ];
@@ -77,8 +77,8 @@ const FlowFitApp: React.FC = () => {
     name: '',
     goal: '',
     equipment: '',
-    cycleRegular: '',
-    lastPeriod: '',
+    cycle_regular: '', // Updated to snake_case
+    last_period: '',    // Updated to snake_case
     currentPhase: null, // Initialize
     cycleDay: 0, // Initialize
   });

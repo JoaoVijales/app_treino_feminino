@@ -5,8 +5,8 @@ export interface UserData {
   name: string;
   goal: string;
   equipment: string;
-  cycleRegular: string;
-  lastPeriod: string;
+  cycle_regular: string; // Changed from cycleRegular
+  last_period: string;   // Changed from lastPeriod
   currentPhase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | null;
   cycleDay: number;
 }

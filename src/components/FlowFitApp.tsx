@@ -115,9 +115,11 @@ const FlowFitApp: React.FC = () => {
       } else {
         // Check subscription status
         const isActiveSubscriber = userPlan && (userPlan.status === 'active' || userPlan.status === 'trialing');
-        if (!isActiveSubscriber) {
+        if (isActiveSubscriber) {
+          setCurrentScreen('home');
+        } else if (userPlan) { // If a plan exists but is not active (e.g., canceled, past_due)
           setCurrentScreen('subscription-required');
-        } else {
+        } else { // No active plan and no userPlan object (never subscribed, but completed onboarding)
           setCurrentScreen('home');
         }
       }
@@ -142,7 +144,39 @@ const FlowFitApp: React.FC = () => {
       if (userProfile?.user_id) {
         await updateUserProfile(userProfile.user_id, { onboarding_completed: true });
         fetchUserProfile(); // Re-fetch profile to update onboarding_completed status
-        setCurrentScreen('home');
+
+        // Initiate Stripe Checkout
+        const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
+        if (!priceId) {
+          console.error('Stripe Price ID is not configured. Falling back to home screen.');
+          setCurrentScreen('home'); // Fallback to home if priceId is missing
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/create-checkout-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            },
+            body: JSON.stringify({ userId: userProfile.user_id, priceId }),
+          });
+
+          const { sessionId, url, error: checkoutError } = await response.json();
+          if (checkoutError) {
+            throw new Error(checkoutError);
+          }
+          if (url) {
+            window.location.href = url; // Redirect to Stripe Checkout
+          } else {
+            console.error('Stripe checkout URL not received. Falling back to home screen.');
+            setCurrentScreen('home'); // Fallback
+          }
+        } catch (err: any) {
+          console.error('Failed to initiate checkout after onboarding:', err.message);
+          setCurrentScreen('home'); // Fallback
+        }
       }
     }
   }, [onboardingStep, onboardingUserData, userProfile, fetchUserProfile, updateUserProfile]);

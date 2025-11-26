@@ -41,19 +41,10 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  await supabase.auth.getSession();
 
-  // TODO: Define NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local
-
-  const publicPaths = ['/login', '/register', '/forgot-password', '/onboarding']; // Add other public paths as needed
-
-  if (!session && !publicPaths.includes(req.nextUrl.pathname)) {
-    // Redirect to login page if not authenticated and not on a public path
-    const loginUrl = new URL('/login', req.url);
-    return NextResponse.redirect(loginUrl);
-  }
+  // The rest of the middleware logic is handled by the FlowFitApp component.
+  // This middleware is only responsible for refreshing the session.
 
   return res;
 }
@@ -68,6 +59,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - desing (design assets)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|desing|public).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|desing).*)',
   ],
 };

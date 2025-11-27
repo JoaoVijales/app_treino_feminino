@@ -3,6 +3,7 @@ import { useFlowFit } from '../context/FlowFitContext';
 import { CyclePhases } from '../types';
 import { getWorkoutsThisWeek, getConsistency, getStreak } from '../utils/stats';
 import { useWorkoutSession } from '../hooks/useWorkoutSession'; // Import useWorkoutSession
+import { useMemo } from 'react';
 
 interface HomeScreenProps {
   onNavigate: (screen: 'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active') => void;

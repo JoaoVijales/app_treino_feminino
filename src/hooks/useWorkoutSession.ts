@@ -47,8 +47,13 @@ export const useWorkoutSession = (): WorkoutSessionState => {
     const [error, setError] = useState<string | null>(null);
 
     const startWorkoutSession = useCallback(async (workoutId: string) => {
+        console.log('startWorkoutSession called with workoutId:', workoutId);
+        console.log('userProfile?.id:', userProfile?.id);
+        console.log('currentPhase:', currentPhase);
+
         if (!userProfile?.id || !currentPhase) {
             setError("User not logged in or cycle phase not determined.");
+            console.error("Pre-condition failed: User not logged in or cycle phase not determined.");
             return;
         }
 
@@ -71,7 +76,8 @@ export const useWorkoutSession = (): WorkoutSessionState => {
             });
 
             if (!newSession) {
-                throw new Error("Failed to create new workout session.");
+                console.error("addUserWorkoutSession returned null. RLS policy likely preventing insertion.");
+                throw new Error("Failed to create new workout session due to potential RLS policy.");
             }
 
             // Fetch workout details to pre-populate exercises

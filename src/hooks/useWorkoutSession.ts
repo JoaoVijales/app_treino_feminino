@@ -183,7 +183,11 @@ export const useWorkoutSession = (): WorkoutSessionState => {
     }, []);
 
     const finishWorkoutSession = useCallback(async (intensity: number, feeling: string, notes: string) => {
+        console.log('finishWorkoutSession called');
+        console.log('currentWorkoutSession:', currentWorkoutSession);
+
         if (!currentWorkoutSession?.workoutSession.id) {
+            console.log('Condition !currentWorkoutSession?.workoutSession.id met. currentWorkoutSession is null or missing id.');
             setError("No active workout session to finish.");
             return;
         }
@@ -191,12 +195,21 @@ export const useWorkoutSession = (): WorkoutSessionState => {
         setLoading(true);
         setError(null);
         try {
-            await updateUserWorkoutSession(currentWorkoutSession.workoutSession.id, intensity, feeling, notes);
-            setCurrentWorkoutSession(null); // Clear the active session
+            const updatedSession = await updateUserWorkoutSession(currentWorkoutSession.workoutSession.id, intensity, feeling, notes);
+            console.log('updateUserWorkoutSession result:', updatedSession);
+            if (updatedSession) {
+                setCurrentWorkoutSession(null); // Clear the active session
+                console.log('currentWorkoutSession cleared.');
+            } else {
+                console.log('updateUserWorkoutSession returned null, not clearing session.');
+                setError("Failed to update workout session in DB.");
+            }
         } catch (err: any) {
+            console.error('Error during finishWorkoutSession:', err);
             setError(err.message);
         } finally {
             setLoading(false);
+            console.log('finishWorkoutSession finished.');
         }
     }, [currentWorkoutSession]);
 

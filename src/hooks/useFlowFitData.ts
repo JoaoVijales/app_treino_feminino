@@ -48,6 +48,7 @@ export const useFlowFitData = () => {
           await fetchUserPlan(user.id);
 
           let phase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | null = null;
+          let currentCycleDay: number | null = null;
           if (profile.last_period && profile.cycle_regular) {
             const lastPeriodDate = new Date(profile.last_period);
             const cycleLength = 28; // Assuming a fixed cycle length for now
@@ -55,12 +56,23 @@ export const useFlowFitData = () => {
             setCurrentPhase(phase);
 
             const daysSinceLastPeriod = Math.floor((new Date().getTime() - lastPeriodDate.getTime()) / (1000 * 60 * 60 * 24));
-            const currentCycleDay = (daysSinceLastPeriod % cycleLength) + 1;
+            currentCycleDay = (daysSinceLastPeriod % cycleLength) + 1;
             setCycleDay(currentCycleDay);
           } else {
             setCurrentPhase(null);
             setCycleDay(null);
           }
+
+          const newUserData: UserData = {
+            name: profile.name,
+            goal: profile.goal,
+            equipment: profile.equipment,
+            cycle_regular: profile.cycle_regular,
+            last_period: profile.last_period,
+            currentPhase: phase,
+            cycleDay: currentCycleDay,
+          };
+          setUserData(newUserData);
 
           // Fetch workout based on phase and equipment
           if (phase && profile.equipment) {

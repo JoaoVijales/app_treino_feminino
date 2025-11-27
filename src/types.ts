@@ -3,12 +3,12 @@ import { LucideProps } from 'lucide-react';
 
 export interface UserData {
   name: string;
-  goal: string;
-  equipment: string;
-  cycle_regular: string; // Changed from cycleRegular
-  last_period: string;   // Changed from lastPeriod
+  goal: string | null;
+  equipment: string | null;
+  cycle_regular: string | null; 
+  last_period: string | null;   
   currentPhase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | null;
-  cycleDay: number;
+  cycleDay: number | null;
 }
 
 export interface CyclePhase {

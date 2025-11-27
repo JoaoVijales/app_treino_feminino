@@ -16,7 +16,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   console.log('userData:', userData);
   console.log('todayWorkoutState:', todayWorkoutState);
 
-  if (loading || !userData || !userData.currentPhase || !todayWorkoutState) {
+  if (loading || !userData || !userData.currentPhase || userData.cycleDay === null || !todayWorkoutState) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p>Loading user data...</p>
@@ -92,7 +92,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <div
                 key={i}
                 className={`flex-1 h-1.5 rounded-full ${
-                  i < userData.cycleDay ? 'bg-white' : 'bg-white/20'
+                  i < userData.cycleDay! ? 'bg-white' : 'bg-white/20'
                 }`}
               />
             ))}

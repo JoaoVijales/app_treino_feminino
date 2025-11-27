@@ -3,11 +3,14 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
 
+import { Activity, Settings, Calendar, BarChart3 } from 'lucide-react';
+
 interface SettingsScreenProps {
+  onNavigate: (screen: 'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active') => void;
   onBack: () => void;
 }
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onNavigate }) => {
   const { userProfile, signOut } = useFlowFit();
 
   // Mock state for toggles as their state is not in the hook
@@ -143,6 +146,36 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
               <div className="font-semibold text-red-600">Sair</div>
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4">
+        <div className="flex justify-around max-w-md mx-auto">
+          <button className="flex flex-col items-center gap-1">
+            <Activity className="w-6 h-6 text-rose-500" />
+            <span className="text-xs font-medium text-rose-500">Início</span>
+          </button>
+          <button
+            onClick={() => onNavigate('calendar')}
+            className="flex flex-col items-center gap-1"
+          >
+            <Calendar className="w-6 h-6 text-gray-400" />
+            <span className="text-xs text-gray-400">Ciclo</span>
+          </button>
+          <button
+            onClick={() => onNavigate('history')}
+            className="flex flex-col items-center gap-1"
+          >
+            <BarChart3 className="w-6 h-6 text-gray-400" />
+            <span className="text-xs text-gray-400">Progresso</span>
+          </button>
+          <button
+            onClick={() => onNavigate('settings')}
+            className="flex flex-col items-center gap-1"
+          >
+            <Settings className="w-6 h-6 text-gray-400" />
+            <span className="text-xs text-gray-400">Ajustes</span>
+          </button>
         </div>
       </div>
     </div>

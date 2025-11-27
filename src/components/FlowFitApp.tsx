@@ -220,7 +220,7 @@ const FlowFitApp: React.FC = () => {
       case 'calendar':
         return <CalendarScreen setCurrentScreen={setCurrentScreen} onClose={() => setCurrentScreen('home')} />;
       case 'settings':
-        return <SettingsScreen onBack={() => setCurrentScreen('home')} />;
+        return <SettingsScreen onNavigate={setCurrentScreen} onBack={() => setCurrentScreen('home')} />;
       case 'feedback':
         return <FeedbackScreen onClose={() => setCurrentScreen('home')} />;
       case 'onboarding':
@@ -266,41 +266,6 @@ const FlowFitApp: React.FC = () => {
       <main className="flex-grow">
         {renderScreen()}
       </main>
-
-      {session && userProfile?.onboarding_completed && (
-        <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4">
-          <div className="flex justify-around max-w-md mx-auto">
-            <button 
-              onClick={() => setCurrentScreen('home')}
-              className="flex flex-col items-center gap-1"
-            >
-              <Home className={`w-6 h-6 ${currentScreen === 'home' ? 'text-rose-500' : 'text-gray-400'}`} />
-              <span className={`text-xs ${currentScreen === 'home' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Início</span>
-            </button>
-            <button 
-              onClick={() => setCurrentScreen('calendar')}
-              className="flex flex-col items-center gap-1"
-            >
-              <Calendar className={`w-6 h-6 ${currentScreen === 'calendar' ? 'text-rose-500' : 'text-gray-400'}`} />
-              <span className={`text-xs ${currentScreen === 'calendar' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Ciclo</span>
-            </button>
-            <button 
-              onClick={() => setCurrentScreen('history')}
-              className="flex flex-col items-center gap-1"
-            >
-              <BarChart3 className={`w-6 h-6 ${currentScreen === 'history' ? 'text-rose-500' : 'text-gray-400'}`} />
-              <span className={`text-xs ${currentScreen === 'history' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Progresso</span>
-            </button>
-            <button 
-              onClick={() => setCurrentScreen('settings')}
-              className="flex flex-col items-center gap-1"
-            >
-              <Settings className={`w-6 h-6 ${currentScreen === 'settings' ? 'text-rose-500' : 'text-gray-400'}`} />
-              <span className={`text-xs ${currentScreen === 'settings' ? 'font-medium text-rose-500' : 'text-gray-400'}`}>Ajustes</span>
-            </button>
-          </div>
-        </footer>
-      )}
     </div>
   );
 };

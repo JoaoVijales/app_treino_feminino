@@ -218,7 +218,7 @@ const FlowFitApp: React.FC = () => {
       case 'history':
         return <HistoryScreen onBack={() => setCurrentScreen('home')} />;
       case 'calendar':
-        return <CalendarScreen onClose={() => setCurrentScreen('home')} />;
+        return <CalendarScreen setCurrentScreen={setCurrentScreen} onClose={() => setCurrentScreen('home')} />;
       case 'settings':
         return <SettingsScreen onBack={() => setCurrentScreen('home')} />;
       case 'feedback':

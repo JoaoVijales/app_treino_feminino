@@ -44,32 +44,65 @@ export const useFlowFitData = () => {
       if (user) {
         const profile = await getUserProfile(user.id);
         setUserProfile(profile);
-        if (profile) { // Fetch user plan only if profile exists
+        if (profile) {
           await fetchUserPlan(user.id);
-        }
 
-        // Calculate menstrual cycle phase
-        if (profile?.last_period && profile?.cycle_regular) {
-          const lastPeriodDate = new Date(profile.last_period);
-          // Assuming an average cycle length if not dynamically determined
-          const cycleLength = parseInt(profile.cycle_regular) || 28;
-          const phase = getCyclePhase(lastPeriodDate, cycleLength);
-          setCurrentPhase(phase);
+          let phase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | null = null;
+          if (profile.last_period && profile.cycle_regular) {
+            const lastPeriodDate = new Date(profile.last_period);
+            const cycleLength = 28; // Assuming a fixed cycle length for now
+            phase = getCyclePhase(lastPeriodDate, cycleLength);
+            setCurrentPhase(phase);
 
-          const daysSinceLastPeriod = Math.floor((new Date().getTime() - lastPeriodDate.getTime()) / (1000 * 60 * 60 * 24));
-          const currentCycleDay = (daysSinceLastPeriod % cycleLength) + 1;
-          setCycleDay(currentCycleDay);
-        } else {
-          setCurrentPhase(null);
-          setCycleDay(null);
+            const daysSinceLastPeriod = Math.floor((new Date().getTime() - lastPeriodDate.getTime()) / (1000 * 60 * 60 * 24));
+            const currentCycleDay = (daysSinceLastPeriod % cycleLength) + 1;
+            setCycleDay(currentCycleDay);
+          } else {
+            setCurrentPhase(null);
+            setCycleDay(null);
+          }
+
+          // Fetch workout based on phase and equipment
+          if (phase && profile.equipment) {
+            // Ensure equipment is an array for the 'in' filter
+            const equipmentList = Array.isArray(profile.equipment) ? profile.equipment : [profile.equipment];
+            const possibleWorkouts = await getWorkouts(phase, equipmentList, profile.training_level || 'beginner');
+            
+            if (possibleWorkouts && possibleWorkouts.length > 0) {
+              const selectedWorkout = possibleWorkouts[0]; // Simple selection strategy: take the first one
+              const exercises = await getWorkoutDetails(selectedWorkout.id);
+
+              if (exercises) {
+                const todayWorkout: TodayWorkout = {
+                  id: selectedWorkout.id,
+                  title: selectedWorkout.title || 'Treino do Dia',
+                  duration: `${selectedWorkout.time_predicted || 30} min`,
+                  intensity: selectedWorkout.intensity || 'Moderado',
+                  reason: selectedWorkout.workout_description || 'Um ótimo treino para sua fase atual.',
+                  exercises: exercises,
+                };
+                setCurrentWorkout(todayWorkout);
+              } else {
+                 setCurrentWorkout(null);
+              }
+            } else {
+              setCurrentWorkout(null); // No workout found for this criteria
+            }
+          } else {
+             setCurrentWorkout(null);
+          }
         }
+      } else {
+        setUserProfile(null);
+        setCurrentWorkout(null);
       }
     } catch (err: any) {
       setError(err.message);
+      setCurrentWorkout(null);
     } finally {
       setLoading(false);
     }
-  }, [fetchUserPlan]); // Add fetchUserPlan to dependencies
+  }, [fetchUserPlan]);
 
   const fetchUserWorkoutSessions = useCallback(async (userId: string) => {
     try {

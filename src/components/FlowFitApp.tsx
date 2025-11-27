@@ -41,9 +41,9 @@ const onboardingScreensConfig: OnboardingScreenConfig[] = [
     field: "equipment",
     type: "multiple",
     options: [
-      { value: "peso-corporal", label: "Apenas Peso Corporal", icon: "🤸‍♀️" },
-      { value: "halteres", label: "Halteres", icon: "🏋️‍♀️" },
-      { value: "elasticos", label: "Elásticos de Resistência", icon: "🪢" },
+      { value: "none", label: "Apenas Peso Corporal", icon: "🤸‍♀️" },
+      { value: "dumbbell", label: "Halteres", icon: "🏋️‍♀️" },
+      { value: "elastic", label: "Elásticos de Resistência", icon: "🪢" },
     ],
   },
   {

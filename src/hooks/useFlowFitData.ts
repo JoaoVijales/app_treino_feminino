@@ -93,8 +93,6 @@ export const useFlowFitData = () => {
   }, []);
 
   useEffect(() => {
-    fetchUserProfile();
-
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         fetchUserProfile();

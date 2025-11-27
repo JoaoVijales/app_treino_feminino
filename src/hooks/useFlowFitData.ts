@@ -193,8 +193,8 @@ export const useFlowFitData = () => {
     }
   }, []);
 
-  useEffect(()=>{console.log(userProfile?.user_id)}, [userProfile])
-
+  useEffect(()=>{console.log(userProfile)}, [userProfile])
+  useEffect(()=>{console.log(userData)}, [userData])
   return {
     userData,
     userProfile,

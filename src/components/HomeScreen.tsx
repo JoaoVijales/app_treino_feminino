@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Activity, Clock, Target, Info, Play, Settings, Calendar, BarChart3, Zap, Droplet, Sun, Moon } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
 import { CyclePhases } from '../types';
@@ -10,11 +10,13 @@ interface HomeScreenProps {
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
-  const { userData, todayWorkoutState, workoutHistory } = useFlowFit();
-  const [isLoading, setIsLoading] = useState<Boolean>(false)
-  
-  if (!userData || !userData.currentPhase || !todayWorkoutState) {
-    setIsLoading(true)
+  const { userData, todayWorkoutState, workoutHistory, loading } = useFlowFit();
+
+  console.log('loading:', loading);
+  console.log('userData:', userData);
+  console.log('todayWorkoutState:', todayWorkoutState);
+
+  if (loading || !userData || !userData.currentPhase || !todayWorkoutState) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p>Loading user data...</p>
@@ -52,8 +54,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     return phase;
   }
 
-
-
   const phase = cyclePhases[currentPhase];
   const PhaseIcon = phase.icon;
   
@@ -62,26 +62,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
     return today.toLocaleDateString('pt-BR', options);
   }
-
-
-  // if (!todayWorkoutState) {
-  //   console.log('not todayWorkoutState' )
-  //   return (
-  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-  //       <p>No workout available for today.</p>
-  //     </div>
-  //   );
-  // }
-
-  useEffect(() =>{
-    if (!userData || !userData.currentPhase || !todayWorkoutState) {
-    setIsLoading(true)
-  } else {
-    setIsLoading(false)
-  }
-  },[userData])
-
-  
 
   return (
     <div className="min-h-screen bg-gray-50">

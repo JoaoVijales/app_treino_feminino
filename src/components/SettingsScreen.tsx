@@ -1,130 +1,149 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Home, Calendar, BarChart3, Settings } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
-import { updateUserProfile } from '../utils/api';
-import { UserProfile } from '../types/supabase'; // Import UserProfile type
 
 interface SettingsScreenProps {
   onBack: () => void;
 }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
-  const { userProfile, updateUserData, fetchUserProfile } = useFlowFit();
-  const [name, setName] = useState(userProfile?.name || '');
-  const [goal, setGoal] = useState(userProfile?.goal || '');
-  const [equipment, setEquipment] = useState(userProfile?.equipment || '');
-  const [cycleRegular, setCycleRegular] = useState(userProfile?.cycle_regular || '');
-  const [lastPeriod, setLastPeriod] = useState(userProfile?.last_period || '');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const { userProfile, signOut } = useFlowFit();
 
-  useEffect(() => {
-    if (userProfile) {
-      setName(userProfile.name || '');
-      setGoal(userProfile.goal || '');
-      setEquipment(userProfile.equipment || '');
-      setCycleRegular(userProfile.cycle_regular || '');
-      setLastPeriod(userProfile.last_period || '');
-    }
-  }, [userProfile]);
-
-  const handleSave = async () => {
-    if (!userProfile?.id) {
-      setError('User profile not loaded.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setMessage('');
-
-    try {
-      const updatedProfile: Partial<UserProfile> = {
-        name,
-        goal,
-        equipment,
-        cycle_regular: cycleRegular,
-        last_period: lastPeriod,
-      };
-
-      await updateUserProfile(userProfile.id, updatedProfile);
-      setMessage('Perfil atualizado com sucesso!');
-      fetchUserProfile(); // Re-fetch to ensure context is updated
-    } catch (err: any) {
-      setError('Erro ao atualizar perfil: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Mock state for toggles as their state is not in the hook
+  const [blockHiit, setBlockHiit] = useState(true);
+  const [preferBodyweight, setPreferBodyweight] = useState(false);
+  const [shortWorkouts, setShortWorkouts] = useState(false);
+  const [trainingReminder, setTrainingReminder] = useState(true);
+  const [periodPrediction, setPeriodPrediction] = useState(true);
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <ChevronLeft className="cursor-pointer" onClick={onBack} />
-        <h2 className="text-xl font-bold">Configurações</h2>
-        <Home className="opacity-0" /> {/* Placeholder for alignment */}
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="bg-white border-b border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-1">
+          <button onClick={onBack}>
+            <ChevronLeft className="w-6 h-6 text-gray-600" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-800">Ajustes</h1>
+        </div>
+        <p className="text-gray-600 text-sm ml-9">Personalize seu treino</p>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-gray-700 text-sm font-bold mb-2">Nome:</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
+      <div className="p-6 space-y-6">
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-800 mb-4">Preferências de Treino</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <div className="font-semibold text-gray-800">Bloquear HIIT</div>
+                <div className="text-sm text-gray-600">Durante fase menstrual</div>
+              </div>
+              <button
+                onClick={() => setBlockHiit(!blockHiit)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${blockHiit ? 'bg-rose-400' : 'bg-gray-300'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-transform ${blockHiit ? 'transform translate-x-full' : 'transform translate-x-0.5'}`}></div>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <div className="font-semibold text-gray-800">Preferir peso corporal</div>
+                <div className="text-sm text-gray-600">Exercícios sem equipamento</div>
+              </div>
+              <button
+                onClick={() => setPreferBodyweight(!preferBodyweight)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${preferBodyweight ? 'bg-rose-400' : 'bg-gray-300'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-transform ${preferBodyweight ? 'transform translate-x-full' : 'transform translate-x-0.5'}`}></div>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <div className="font-semibold text-gray-800">Treinos curtos</div>
+                <div className="text-sm text-gray-600">Máximo 30 minutos</div>
+              </div>
+              <button
+                onClick={() => setShortWorkouts(!shortWorkouts)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${shortWorkouts ? 'bg-rose-400' : 'bg-gray-300'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-transform ${shortWorkouts ? 'transform translate-x-full' : 'transform translate-x-0.5'}`}></div>
+              </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <label className="block text-gray-700 text-sm font-bold mb-2">Objetivo:</label>
-          <input
-            type="text"
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
+
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-800 mb-4">Dados do Ciclo</h3>
+          <div className="space-y-3">
+            <button className="w-full p-4 bg-gray-50 rounded-xl text-left flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-gray-800">Última menstruação</div>
+                <div className="text-sm text-gray-600">{userProfile?.last_period ? new Date(userProfile.last_period).toLocaleDateString() : 'Não informado'}</div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+
+            <button className="w-full p-4 bg-gray-50 rounded-xl text-left flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-gray-800">Regularidade do ciclo</div>
+                <div className="text-sm text-gray-600">{userProfile?.cycle_regular === 'yes' ? 'Regular' : 'Irregular'}</div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
         </div>
-        <div>
-          <label className="block text-gray-700 text-sm font-bold mb-2">Equipamento:</label>
-          <input
-            type="text"
-            value={equipment}
-            onChange={(e) => setEquipment(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
+
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-800 mb-4">Notificações</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <div className="font-semibold text-gray-800">Lembrete de treino</div>
+                <div className="text-sm text-gray-600">Todos os dias às 18h</div>
+              </div>
+              <button
+                onClick={() => setTrainingReminder(!trainingReminder)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${trainingReminder ? 'bg-rose-400' : 'bg-gray-300'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-transform ${trainingReminder ? 'transform translate-x-full' : 'transform translate-x-0.5'}`}></div>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <div className="font-semibold text-gray-800">Previsão de período</div>
+                <div className="text-sm text-gray-600">2 dias antes</div>
+              </div>
+              <button
+                onClick={() => setPeriodPrediction(!periodPrediction)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${periodPrediction ? 'bg-rose-400' : 'bg-gray-300'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-transform ${periodPrediction ? 'transform translate-x-full' : 'transform translate-x-0.5'}`}></div>
+              </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <label className="block text-gray-700 text-sm font-bold mb-2">Ciclo Regular?</label>
-          <select
-            value={cycleRegular}
-            onChange={(e) => setCycleRegular(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          >
-            <option value="">Selecione</option>
-            <option value="yes">Sim</option>
-            <option value="no">Não</option>
-          </select>
+
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-800 mb-4">Conta</h3>
+          <div className="space-y-3">
+            <button className="w-full p-4 bg-gray-50 rounded-xl text-left flex items-center justify-between">
+              <div className="font-semibold text-gray-800">Perfil</div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+
+            <button className="w-full p-4 bg-gray-50 rounded-xl text-left flex items-center justify-between">
+              <div className="font-semibold text-gray-800">Privacidade</div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+
+            <button onClick={signOut} className="w-full p-4 bg-red-50 rounded-xl text-left">
+              <div className="font-semibold text-red-600">Sair</div>
+            </button>
+          </div>
         </div>
-        <div>
-          <label className="block text-gray-700 text-sm font-bold mb-2">Última Menstruação:</label>
-          <input
-            type="date"
-            value={lastPeriod}
-            onChange={(e) => setLastPeriod(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <button
-          onClick={handleSave}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
-          disabled={loading}
-        >
-          {loading ? 'Salvando...' : 'Salvar Alterações'}
-        </button>
-        {message && <p className="text-green-500 mt-2">{message}</p>}
-        {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>
     </div>
   );

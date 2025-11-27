@@ -12,7 +12,7 @@ interface HomeScreenProps {
 const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { userData, todayWorkoutState, workoutHistory } = useFlowFit();
 
-  if (!userData) {
+  if (!userData || !userData.currentPhase || !todayWorkoutState) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p>Loading user data...</p>
@@ -50,14 +50,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     return phase;
   }
 
-  if (!currentPhase || !todayWorkoutState) {
-    // Render a loading state or a message if the phase is not yet available
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p>Loading cycle information...</p>
-      </div>
-    );
-  }
+
 
   const phase = cyclePhases[currentPhase];
   const PhaseIcon = phase.icon;

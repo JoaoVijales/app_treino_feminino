@@ -1,9 +1,8 @@
-"use client";
-import React, { useMemo } from 'react';
 import { Activity, Clock, Target, Info, Play, Settings, Calendar, BarChart3, Zap, Droplet, Sun, Moon } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
 import { CyclePhases } from '../types';
 import { getWorkoutsThisWeek, getConsistency, getStreak } from '../utils/stats';
+import { useWorkoutSession } from '../hooks/useWorkoutSession'; // Import useWorkoutSession
 
 interface HomeScreenProps {
   onNavigate: (screen: 'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active') => void;
@@ -11,6 +10,7 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { userData, todayWorkoutState, workoutHistory, loading } = useFlowFit();
+  const { startWorkoutSession } = useWorkoutSession(); // Destructure startWorkoutSession
 
   console.log('loading:', loading);
   console.log('userData:', userData);
@@ -131,7 +131,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           </div>
 
           <button
-            onClick={() => onNavigate('workout-active')}
+            onClick={async () => {
+              if (todayWorkoutState) {
+                await startWorkoutSession(todayWorkoutState.id); // Call startWorkoutSession
+                onNavigate('workout-active');
+              }
+            }}
             className="w-full py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
           >
             <Play className="w-5 h-5" />

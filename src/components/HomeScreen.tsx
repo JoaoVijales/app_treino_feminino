@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, Clock, Target, Info, Play, Settings, Calendar, BarChart3, Zap, Droplet, Sun, Moon } from 'lucide-react';
 import { useFlowFit } from '../context/FlowFitContext';
 import { CyclePhases } from '../types';
@@ -11,8 +11,10 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { userData, todayWorkoutState, workoutHistory } = useFlowFit();
-
+  const [isLoading, setIsLoading] = useState<Boolean>(false)
+  
   if (!userData || !userData.currentPhase || !todayWorkoutState) {
+    setIsLoading(true)
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p>Loading user data...</p>
@@ -70,6 +72,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   //     </div>
   //   );
   // }
+
+  useEffect(() =>{
+    if (!userData || !userData.currentPhase || !todayWorkoutState) {
+    setIsLoading(true)
+  } else {
+    setIsLoading(false)
+  }
+  },[userData])
+
+  
 
   return (
     <div className="min-h-screen bg-gray-50">

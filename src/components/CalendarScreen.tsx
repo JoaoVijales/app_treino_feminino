@@ -17,9 +17,9 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
 
   const cyclePhases: CyclePhases = {
     menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸' },
-    folicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
-    ovulatoria: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
-    lutea: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
+    follicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
+    ovulatory: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
+    luteal: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
   };
 
   const getDaysInMonth = (year: number, month: number) => {
@@ -40,12 +40,29 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
 
   const getDayPhaseForDate = (day: number) => {
     const dateForPhase = new Date(currentYear, currentMonth, day);
-    // This logic should be improved to find the most recent cycle start date
-    if (!userData?.last_period) {
-      return getCyclePhase(date, 28)
+    dateForPhase.setHours(0, 0, 0, 0);
+
+    if (!menstrualCycles || menstrualCycles.length === 0) {
+      if (userData?.last_period) {
+        const lastPeriodDate = new Date(userData.last_period + 'T00:00:00');
+        return getCyclePhase(lastPeriodDate, 28, dateForPhase);
+      }
+      return 'luteal';
     }
-    const lastPeriodDate = menstrualCycles.length > 0 ? new Date(menstrualCycles[0].start_date_log) : new Date(userData.last_period);
-    return getCyclePhase(lastPeriodDate, 28);
+
+    const relevantCycle = menstrualCycles
+      .map(c => new Date(c.start_date_log + 'T00:00:00'))
+      .filter(startDate => startDate <= dateForPhase)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+
+    if (relevantCycle) {
+      return getCyclePhase(relevantCycle, 28, dateForPhase);
+    } else if (userData?.last_period) {
+      const lastPeriodDate = new Date(userData.last_period + 'T00:00:00');
+      return getCyclePhase(lastPeriodDate, 28, dateForPhase);
+    }
+    
+    return 'luteal';
   };
 
   const isPeriodDay = (day: number) => {
@@ -105,9 +122,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => 
           {day}
         </span>
         <div className="flex gap-0.5 mt-1">
-          {hasPeriod && (
-            <div className={`w-1.5 h-1.5 rounded-full bg-${cyclePhases[phase].color}-400`} />
-          )}
+          <div className={`w-1.5 h-1.5 rounded-full bg-${cyclePhases[phase]?.color}-400`} />
         </div>
       </button>
     );

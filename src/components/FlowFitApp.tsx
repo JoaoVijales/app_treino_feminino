@@ -1,269 +1,271 @@
-import React, { useState } from 'react';
-import { Droplet, Zap, Sun, Moon } from 'lucide-react';
+"use client";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Droplet, Zap, Sun, Moon, Home, Calendar, BarChart3, Settings } from 'lucide-react'; // Import missing icons
 import FeedbackScreen from './FeedbackScreen';
 import CalendarScreen from './CalendarScreen';
-import OnboardingScreen from './OnboardingScreen';
-import HomeScreen from './HomeScreen';
-import WorkoutActiveScreen from './WorkoutActiveScreen';
 import HistoryScreen from './HistoryScreen';
+import HomeScreen from './HomeScreen';
 import SettingsScreen from './SettingsScreen';
 import LoginScreen from './LoginScreen';
 import RegisterScreen from './RegisterScreen';
 import ForgotPasswordScreen from './ForgotPasswordScreen';
-import { UserData, CyclePhases, TodayWorkout, WeekProgressItem, OnboardingScreenConfig } from '../types';
+import OnboardingScreen from './OnboardingScreen';
+import WorkoutActiveScreen from './WorkoutActiveScreen';
+import { useFlowFit } from '../context/FlowFitContext';
+import { Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { OnboardingScreenConfig, UserData, TodayWorkout } from '../types';
+import { UserProfile, UserPlan } from '../types/supabase'; // Import UserPlan
+import SubscriptionRequiredScreen from './SubscriptionRequiredScreen'; // Import the new screen
 
-const FlowFitApp = () => {
-  const [currentScreen, setCurrentScreen] = useState('login');
+const onboardingScreensConfig: OnboardingScreenConfig[] = [
+  {
+    title: "Qual seu nome?",
+    field: "name",
+    type: "text",
+    placeholder: "Seu nome",
+  },
+  {
+    title: "Qual seu objetivo principal?",
+    subtitle: "Isso nos ajudará a personalizar seu treino.",
+    field: "goal",
+    type: "options",
+    options: [
+      { value: "perder-peso", label: "Perder Peso", icon: "🔥" },
+      { value: "ganhar-massa", label: "Ganhar Massa Muscular", icon: "💪" },
+      { value: "condicionamento", label: "Condicionamento Físico", icon: "🏃‍♀️" },
+    ],
+  },
+  {
+    title: "Quais equipamentos você tem acesso?",
+    subtitle: "Selecione todos que se aplicam.",
+    field: "equipment",
+    type: "multiple",
+    options: [
+      { value: "none", label: "Apenas Peso Corporal", icon: "🤸‍♀️" },
+      { value: "dumbbell", label: "Halteres", icon: "🏋️‍♀️" },
+      { value: "elastic", label: "Elásticos de Resistência", icon: "🪢" },
+    ],
+  },
+  {
+    title: "Seu ciclo menstrual é regular?",
+    field: "cycle_regular",
+    type: "options",
+    options: [
+      { value: "yes", label: "Sim, é regular", icon: "✅" },
+      { value: "no", label: "Não, é irregular", icon: "❌" },
+    ],
+  },
+  {
+    title: "Quando foi sua última menstruação?",
+    field: "last_period",
+    type: "date",
+  },
+];
+
+
+const FlowFitApp: React.FC = () => {
+  const { userProfile, signOut, currentPhase, loading, fetchUserProfile, supabase, currentWorkout, userPlan, updateUserProfile, initiateCheckoutSession } = useFlowFit();
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active' | 'subscription-required'>(
+    'login'
+  );
+  const [session, setSession] = useState<Session | null>(null);
+
+  // Onboarding specific states
   const [onboardingStep, setOnboardingStep] = useState(0);
-  const [userData, setUserData] = useState<UserData>({
+  const [onboardingUserData, setOnboardingUserData] = useState<UserData>({
     name: '',
     goal: '',
-    equipment: [],
-    cycleRegular: '',
-    lastPeriod: '',
-    currentPhase: 'folicular',
-    cycleDay: 10
-  });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [workoutInProgress, setWorkoutInProgress] = useState(false);
-  const [currentExercise, setCurrentExercise] = useState(0);
-  const [timer, setTimer] = useState(45);
-  const [isPaused, setIsPaused] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-  const [periodDates, setPeriodDates] = useState<Array<{ start: string; end: string }>>([
-    { start: '2024-10-28', end: '2024-11-02' },
-    { start: '2024-11-25', end: '2024-11-30' }
-  ]);
-
-
-  const cyclePhases: CyclePhases = {
-    menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸' },
-    folicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
-    ovulatoria: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
-    lutea: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
-  };
-
-  const [todayWorkoutState, setTodayWorkoutState] = useState<TodayWorkout>({
-    title: 'Força + Cardio Moderado',
-    duration: '35 min',
-    intensity: 'Moderada-Alta',
-    reason: 'Sua energia está no pico! Seu corpo responde super bem a treinos intensos agora.',
-    exercises: [
-      { name: 'Agachamento', sets: [
-        { set: 1, reps: 12 },
-        { set: 2, reps: 12 },
-        { set: 3, reps: 12 }
-      ], rest: "45s", video: "🎥" },
-      { name: 'Flexão Inclinada', sets: [
-        { set: 1, reps: 10 },
-        { set: 2, reps: 10 },
-        { set: 3, reps: 10 }
-      ], rest: "45s", video: "🎥" },
-      { name: 'Afundo Alternado', sets: [
-        { set: 1, reps: 10 },
-        { set: 2, reps: 10 },
-        { set: 3, reps: 10 }
-      ], rest: "45s", video: "🎥" },
-      { name: 'Prancha', sets: [
-        { set: 1, reps: 30 },
-        { set: 2, reps: 30 },
-        { set: 3, reps: 30 }
-      ], rest: "30s", video: "🎥" },
-      { name: 'Burpees', sets: [
-        { set: 1, reps: 8 },
-        { set: 2, reps: 8 },
-        { set: 3, reps: 8 }
-      ], rest: "60s", video: "🎥" }
-    ]
+    equipment: '',
+    cycle_regular: '',
+    last_period: '',
+    currentPhase: null,
+    cycleDay: 0,
   });
 
-  const weekProgress: WeekProgressItem[] = [
-    { day: 'Seg', completed: true, intensity: 8 },
-    { day: 'Ter', completed: true, intensity: 7 },
-    { day: 'Qua', completed: false, intensity: 0 },
-    { day: 'Qui', completed: true, intensity: 9 },
-    { day: 'Sex', completed: true, intensity: 6 },
-    { day: 'Sáb', completed: false, intensity: 0 },
-    { day: 'Dom', completed: false, intensity: 0 }
-  ];
-
-  const onboardingScreens: OnboardingScreenConfig[] = [
-    {
-      title: 'Bem-vinda ao FlowFit AI! 💪',
-      subtitle: 'Treinos que se adaptam ao seu ciclo',
-      field: 'name',
-      type: 'text',
-      placeholder: 'Como você se chama?',
-      question: 'Primeiro, vamos nos conhecer:'
-    },
-    {
-      title: 'Qual seu objetivo principal?',
-      field: 'goal',
-      type: 'options',
-      options: [
-        { value: 'forca', label: 'Ganhar força', icon: '💪' },
-        { value: 'cardio', label: 'Melhorar condicionamento', icon: '❤️' },
-        { value: 'flexibilidade', label: 'Aumentar flexibilidade', icon: '🧘‍♀️' },
-        { value: 'geral', label: 'Bem-estar geral', icon: '✨' }
-      ]
-    },
-    {
-      title: 'Quais equipamentos você tem?',
-      field: 'equipment',
-      type: 'multiple',
-      options: [
-        { value: 'peso-corporal', label: 'Só peso corporal', icon: '🏃‍♀️' },
-        { value: 'halteres', label: 'Halteres', icon: '🏋️‍♀️' },
-        { value: 'faixas', label: 'Faixas elásticas', icon: '🎗️' },
-        { value: 'academia', label: 'Academia completa', icon: '🏢' }
-      ]
-    },
-    {
-      title: 'Seu ciclo é regular?',
-      subtitle: 'Isso nos ajuda a fazer previsões mais precisas',
-      field: 'cycleRegular',
-      type: 'options',
-      options: [
-        { value: 'sim', label: 'Sim, geralmente regular', icon: '✅' },
-        { value: 'irregular', label: 'Irregular', icon: '🔄' },
-        { value: 'nao-sei', label: 'Não tenho certeza', icon: '🤔' }
-      ]
-    },
-    {
-      title: 'Quando foi sua última menstruação?',
-      subtitle: 'Usamos isso para identificar sua fase atual',
-      field: 'lastPeriod',
-      type: 'date',
-      placeholder: 'DD/MM/AAAA'
-    }
-  ];
+  // WorkoutActiveScreen specific states
+  const [workoutCurrentExercise, setWorkoutCurrentExercise] = useState<number>(0);
+  const [workoutProgress, setWorkoutProgress] = useState<number>(0);
+  const [workoutTimer, setWorkoutTimer] = useState<number>(0);
+  const [workoutIsPaused, setWorkoutIsPaused] = useState<boolean>(false);
 
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
+      setSession(session);
+    });
 
+    supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      setSession(session);
+    });
+  }, [supabase]);
 
-
-
-
-
-
-
-
-
-
-  const handleOnboardingNext = () => {
-    if (onboardingStep < onboardingScreens.length - 1) {
-      setOnboardingStep(onboardingStep + 1);
+  useEffect(() => {
+    if (session) {
+      fetchUserProfile();
     } else {
-      setCurrentScreen('home');
+      setCurrentScreen('login');
     }
-  };
+  }, [session, fetchUserProfile]);
 
-  const handleOnboardingBack = () => {
+  useEffect(() => {
+    if (!loading) { // Once loading is finished
+      if (!session) {
+        setCurrentScreen('login');
+      } else if (!userProfile) {
+        // Authenticated but no user profile found/created.
+        // This is a critical state for a user that is logged in.
+        // It implies they need to complete onboarding to create their profile.
+        setCurrentScreen('onboarding');
+      } else if (!userProfile.onboarding_completed) {
+        setCurrentScreen('onboarding');
+      } else {
+        // Check subscription status
+        const isActiveSubscriber = userPlan && (userPlan.status === 'active' || userPlan.status === 'trialing');
+        if (isActiveSubscriber) {
+          setCurrentScreen('home');
+        } else { // User is not an active subscriber (either no plan, or plan is inactive)
+          setCurrentScreen('subscription-required'); // Redirect to subscription notice page
+        }
+      }
+    }
+  }, [loading, session, userProfile, userPlan]);
+
+  const handleOnboardingNext = useCallback(async () => {
+    const currentScreenConfig = onboardingScreensConfig[onboardingStep];
+    if (userProfile && currentScreenConfig) {
+      // Logic to save data to userProfile and update Supabase
+      const updatedProfile: Partial<UserProfile> = {
+        [currentScreenConfig.field]: onboardingUserData[currentScreenConfig.field],
+      };
+      // For simplicity, we'll save step by step. A bulk save could be implemented later.
+      await updateUserProfile(userProfile.user_id, updatedProfile);
+    }
+
+    if (onboardingStep < onboardingScreensConfig.length - 1) {
+      setOnboardingStep((prev) => prev + 1);
+    } else {
+      // Last step, mark onboarding as complete
+      if (userProfile?.user_id) {
+        await updateUserProfile(userProfile.user_id, { onboarding_completed: true });
+        fetchUserProfile(); // Re-fetch profile to update onboarding_completed status
+        const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID; // TODO: Define NEXT_PUBLIC_STRIPE_PRICE_ID in your .env.local
+
+        const response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({ userId: userProfile.user_id, priceId }),
+        });
+
+        const { sessionId, url, error: checkoutError } = await response.json();
+        if (checkoutError) throw new Error(checkoutError);
+        window.location.href = url;
+      }
+    }
+  }, [onboardingStep, onboardingUserData, userProfile, fetchUserProfile, updateUserProfile]);
+
+  const handleOnboardingBack = useCallback(() => {
     if (onboardingStep > 0) {
-      setOnboardingStep(onboardingStep - 1);
+      setOnboardingStep((prev) => prev - 1);
     }
-  };
+  }, [onboardingStep]);
 
-  const startWorkout = () => {
-    setWorkoutInProgress(true);
-    setCurrentScreen('workout-active');
-    setCurrentExercise(0);
-  };
 
-  const nextExercise = (reps: number, weight: number) => {
-    const updatedWorkout = { ...todayWorkoutState };
-    const currentEx = updatedWorkout.exercises[currentExercise];
-
-    currentEx.reps = reps;
-    currentEx.weight = weight;
-
-    // PR Logic
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-    if (reps > (currentEx.prReps || 0)) {
-      currentEx.prReps = reps;
-      currentEx.prDate = today;
+  const renderScreen = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p>Loading...</p>
+        </div>
+      );
     }
 
-    if (weight > (currentEx.prWeight || 0)) {
-      currentEx.prWeight = weight;
-      currentEx.prDate = today;
+    if (!session) {
+      switch (currentScreen) {
+        case 'register':
+          return <RegisterScreen onLogin={() => setCurrentScreen('login')} />;
+        case 'forgot-password':
+          return <ForgotPasswordScreen onLogin={() => setCurrentScreen('login')} />;
+        default:
+          return <LoginScreen onRegister={() => setCurrentScreen('register')} onForgotPassword={() => setCurrentScreen('forgot-password')} />;
+      }
     }
 
-    setTodayWorkoutState(updatedWorkout);
+    if (!userProfile?.onboarding_completed && currentScreen !== 'onboarding') {
+      return (
+        <OnboardingScreen
+          onboardingScreens={onboardingScreensConfig}
+          onboardingStep={onboardingStep}
+          setOnboardingStep={setOnboardingStep}
+          userData={onboardingUserData}
+          setUserData={setOnboardingUserData}
+          handleOnboardingNext={handleOnboardingNext}
+          handleOnboardingBack={handleOnboardingBack}
+          onComplete={() => {
+            fetchUserProfile();
+            setCurrentScreen('home');
+          }}
+          setCurrentScreen={setCurrentScreen}
+        />
+      );
+    }
 
-    if (currentExercise < todayWorkoutState.exercises.length - 1) {
-      setCurrentExercise(currentExercise + 1);
-      setTimer(45);
-    } else {
-      setCurrentScreen('feedback');
+    switch (currentScreen) {
+      case 'home':
+        return <HomeScreen onNavigate={(screen) => setCurrentScreen(screen)} />;
+      case 'history':
+        return <HistoryScreen onBack={() => setCurrentScreen('home')} />;
+      case 'calendar':
+        return <CalendarScreen setCurrentScreen={setCurrentScreen} onClose={() => setCurrentScreen('home')} />;
+      case 'settings':
+        return <SettingsScreen onNavigate={setCurrentScreen} onBack={() => setCurrentScreen('home')} />;
+      case 'feedback':
+        return <FeedbackScreen onClose={() => setCurrentScreen('home')} />;
+      case 'onboarding':
+        return (
+            <OnboardingScreen
+            onboardingScreens={onboardingScreensConfig}
+            onboardingStep={onboardingStep}
+            setOnboardingStep={setOnboardingStep}
+            userData={onboardingUserData}
+            setUserData={setOnboardingUserData}
+            handleOnboardingNext={handleOnboardingNext}
+            handleOnboardingBack={handleOnboardingBack}
+            onComplete={() => {
+              fetchUserProfile();
+              setCurrentScreen('home');
+            }}
+            setCurrentScreen={setCurrentScreen}
+          />
+        );
+      case 'subscription-required':
+        return <SubscriptionRequiredScreen onNavigate={setCurrentScreen} />;
+      case 'workout-active':
+        return (
+          <WorkoutActiveScreen
+            todayWorkout={currentWorkout}
+            currentExercise={workoutCurrentExercise}
+            setCurrentExercise={setWorkoutCurrentExercise}
+            progress={workoutProgress}
+            timer={workoutTimer}
+            isPaused={workoutIsPaused}
+            setIsPaused={setWorkoutIsPaused}
+            onFinish={() => setCurrentScreen('feedback')}
+            onNavigate={(screen) => setCurrentScreen(screen)}
+          />
+        );
+      default:
+        return <HomeScreen onNavigate={(screen) => setCurrentScreen(screen)} />;
     }
   };
 
   return (
-    <div>
-      {currentScreen === 'login' && (
-        <LoginScreen setCurrentScreen={setCurrentScreen} />
-      )}
-      {currentScreen === 'register' && (
-        <RegisterScreen setCurrentScreen={setCurrentScreen} />
-      )}
-      {currentScreen === 'forgot-password' && (
-        <ForgotPasswordScreen setCurrentScreen={setCurrentScreen} />
-      )}
-      {currentScreen === 'onboarding' && (
-        <OnboardingScreen
-          setCurrentScreen={setCurrentScreen}
-          userData={userData}
-          setUserData={setUserData}
-          onboardingStep={onboardingStep}
-          setOnboardingStep={setOnboardingStep}
-          handleOnboardingNext={handleOnboardingNext}
-          handleOnboardingBack={handleOnboardingBack}
-          onboardingScreens={onboardingScreens}
-        />
-      )}
-      {currentScreen === 'home' && (
-        <HomeScreen
-          setCurrentScreen={setCurrentScreen}
-          userData={userData}
-          cyclePhases={cyclePhases}
-          todayWorkout={todayWorkoutState}
-          startWorkout={startWorkout}
-        />
-      )}
-      {currentScreen === 'workout-active' && (
-        <WorkoutActiveScreen
-          setCurrentScreen={setCurrentScreen}
-          setWorkoutInProgress={setWorkoutInProgress}
-          currentExercise={currentExercise}
-          todayWorkout={todayWorkoutState}
-          progress={((currentExercise + 1) / todayWorkoutState.exercises.length) * 100}
-          timer={timer}
-          isPaused={isPaused}
-          setIsPaused={setIsPaused}
-          nextExercise={nextExercise}
-        />
-      )}
-      {currentScreen === 'feedback' && <FeedbackScreen setCurrentScreen={setCurrentScreen} />}
-      {currentScreen === 'calendar' && (
-        <CalendarScreen
-          setCurrentScreen={setCurrentScreen}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          periodDates={periodDates}
-          setPeriodDates={setPeriodDates}
-          userData={userData}
-          cyclePhases={cyclePhases}
-        />
-      )}
-      {currentScreen === 'history' && (
-        <HistoryScreen
-          setCurrentScreen={setCurrentScreen}
-          weekProgress={weekProgress}
-        />
-      )}
-      {currentScreen === 'settings' && <SettingsScreen setCurrentScreen={setCurrentScreen} />}
+    <div className="flex flex-col h-screen">
+      <main className="flex-grow">
+        {renderScreen()}
+      </main>
     </div>
   );
 };

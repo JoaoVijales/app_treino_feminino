@@ -1,30 +1,26 @@
-import React, { useState } from 'react';
-import { ChevronLeft, Calendar, X, Home, BarChart3, Settings, ChevronRight } from 'lucide-react';
-import { UserData, CyclePhases } from '../types';
+import React, { useReducer, useState } from 'react';
+import { ChevronLeft, Calendar, X, Home, BarChart3, Settings, ChevronRight, Droplet, Zap, Sun, Moon } from 'lucide-react';
+import { useFlowFit } from '../context/FlowFitContext';
+import { addMenstrualCycle } from '../utils/api';
+import { CyclePhases } from '../types';
+import { getCyclePhase } from '../utils/cycle_phase';
 
 interface CalendarScreenProps {
-  setCurrentScreen: (screen: string) => void;
-  selectedDate: number | null;
-  setSelectedDate: (date: number | null) => void;
-  periodDates: Array<{ start: string; end: string }>;
-  setPeriodDates: React.Dispatch<React.SetStateAction<Array<{ start: string; end: string }>>>;
-  userData: UserData;
-  cyclePhases: CyclePhases;
+  setCurrentScreen: React.Dispatch<React.SetStateAction<"home" | "history" | "calendar" | "settings" | "feedback" | "login" | "register" | "forgot-password" | "onboarding" | "workout-active" | "subscription-required">>;
+  onClose: React.Dispatch<React.SetStateAction<"home" | "history" | "calendar" | "settings" | "feedback" | "login" | "register" | "forgot-password" | "onboarding" | "workout-active" | "subscription-required">>
 }
 
-const CalendarScreen: React.FC<CalendarScreenProps> = ({
-  setCurrentScreen,
-  selectedDate,
-  setSelectedDate,
-  periodDates,
-  setPeriodDates,
-  userData,
-  cyclePhases,
-}) => {
+const CalendarScreen: React.FC<CalendarScreenProps> = ({ setCurrentScreen }) => {
+  const { userData, menstrualCycles, userProfile, loading } = useFlowFit();
   const [date, setDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  console.log('CalendarScreen rendered. Current date state:', date);
-  console.log('currentMonth:', date.getMonth(), 'currentYear:', date.getFullYear());
+  const cyclePhases: CyclePhases = {
+    menstrual: { name: 'Menstrual', icon: Droplet, color: 'rose', emoji: '🩸' },
+    follicular: { name: 'Folicular', icon: Zap, color: 'green', emoji: '⚡' },
+    ovulatory: { name: 'Ovulatória', icon: Sun, color: 'amber', emoji: '☀️' },
+    luteal: { name: 'Lútea', icon: Moon, color: 'purple', emoji: '🌙' }
+  };
 
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -39,27 +35,63 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
 
-  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-  
-  const getDayPhase = (day: number) => {
-    const dayInCycle = (day + 10) % 28;
+
+  const getDayPhaseForDate = (day: number) => {
+    const dateForPhase = new Date(currentYear, currentMonth, day);
+    dateForPhase.setHours(0, 0, 0, 0);
+
+    if (!menstrualCycles || menstrualCycles.length === 0) {
+      if (userData?.last_period) {
+        const lastPeriodDate = new Date(userData.last_period + 'T00:00:00');
+        return getCyclePhase(lastPeriodDate, 28, dateForPhase);
+      }
+      return 'luteal';
+    }
+
+    const relevantCycle = menstrualCycles
+      .map(c => new Date(c.start_date_log + 'T00:00:00'))
+      .filter(startDate => startDate <= dateForPhase)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+
+    if (relevantCycle) {
+      return getCyclePhase(relevantCycle, 28, dateForPhase);
+    } else if (userData?.last_period) {
+      const lastPeriodDate = new Date(userData.last_period + 'T00:00:00');
+      return getCyclePhase(lastPeriodDate, 28, dateForPhase);
+    }
     
-    if (dayInCycle <= 5) return { phase: 'menstrual', color: 'bg-rose-400' };
-    if (dayInCycle <= 13) return { phase: 'folicular', color: 'bg-green-400' };
-    if (dayInCycle <= 17) return { phase: 'ovulatoria', color: 'bg-amber-400' };
-    return { phase: 'lutea', color: 'bg-purple-400' };
+    return 'luteal';
   };
 
   const isPeriodDay = (day: number) => {
     const dateStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-    return periodDates.some(period => {
-      return dateStr >= period.start && dateStr <= period.end;
+    return menstrualCycles.some(period => {
+      // Adjust for timezone issues by only comparing dates
+      const startDate = new Date(period.start_date_log + 'T00:00:00');
+      const targetDate = new Date(dateStr + 'T00:00:00');
+
+      if (!period.end_date_log) {
+        return startDate.toDateString() === targetDate.toDateString();
+      }
+      const endDate = new Date(period.end_date_log + 'T00:00:00');
+      return targetDate >= startDate && targetDate <= endDate;
     });
   };
 
-  const isPredictedPeriod = (day: number) => {
-    return day >= 25 && day <= 30;
+  const handleAddPeriod = async () => {
+    if (userProfile) {
+      const today = new Date();
+      const newCycle = {
+        user_id: userProfile.user_id,
+        start_date_log: today.toISOString().split('T')[0],
+      };
+      await addMenstrualCycle(newCycle);
+      // Ideally, we should refetch the menstrual cycles data here.
+      // For now, we can give a visual feedback.
+      alert("Seu novo ciclo foi marcado para hoje!");
+    }
   };
 
   const days = [];
@@ -69,21 +101,20 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
 
   for (let day = 1; day <= daysInMonth; day++) {
     const isToday = day === new Date().getDate() && currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear();
-    const phase = getDayPhase(day);
+    const phase = getDayPhaseForDate(day);
     const hasPeriod = isPeriodDay(day);
-    const isPredicted = isPredictedPeriod(day);
-    
+
     days.push(
       <button
         key={day}
         onClick={() => setSelectedDate(day)}
         className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm relative transition-all ${
-          isToday 
-            ? 'ring-2 ring-rose-500 ring-offset-2' 
+          isToday
+            ? 'ring-2 ring-rose-500 ring-offset-2'
             : ''
         } ${
-          selectedDate === day 
-            ? 'bg-rose-100 shadow-lg scale-105' 
+          selectedDate === day
+            ? 'bg-rose-100 shadow-lg scale-105'
             : 'bg-gray-50 hover:bg-gray-100'
         }`}
       >
@@ -91,12 +122,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
           {day}
         </span>
         <div className="flex gap-0.5 mt-1">
-          {hasPeriod && (
-            <div className={`w-1.5 h-1.5 rounded-full ${phase.color}`} />
-          )}
-          {isPredicted && !hasPeriod && (
-            <div className="w-1.5 h-1.5 rounded-full bg-rose-200" />
-          )}
+          <div className={`w-1.5 h-1.5 rounded-full bg-${cyclePhases[phase]?.color}-400`} />
         </div>
       </button>
     );
@@ -106,7 +132,6 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
     setDate(prevDate => {
       const newDate = new Date(prevDate);
       newDate.setMonth(newDate.getMonth() - 1);
-      console.log('handlePrevMonth called. New date set to:', newDate);
       return newDate;
     });
   };
@@ -115,10 +140,13 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
     setDate(prevDate => {
       const newDate = new Date(prevDate);
       newDate.setMonth(newDate.getMonth() + 1);
-      console.log('handleNextMonth called. New date set to:', newDate);
       return newDate;
     });
   };
+
+  if (loading) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p>Carregando...</p></div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -132,15 +160,15 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
 
         <div className="bg-white/20 backdrop-blur rounded-2xl p-4">
           <div className="text-center mb-3">
-            <div className="text-3xl font-bold mb-1">Dia {userData.cycleDay}</div>
+            <div className="text-3xl font-bold mb-1">Dia {userData?.cycleDay}</div>
             <div className="text-sm text-rose-100">do seu ciclo</div>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {Object.entries(cyclePhases).map(([key, phase]) => {
               const PhaseIcon = phase.icon;
-              const isActive = userData.currentPhase === key;
+              const isActive = userData?.currentPhase === key;
               return (
-                <div 
+                <div
                   key={key}
                   className={`text-center p-2 rounded-xl ${
                     isActive ? 'bg-white/30' : 'bg-white/10'
@@ -161,15 +189,8 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
             <button onClick={handlePrevMonth}><ChevronLeft/></button>
             <h2 className="text-xl font-bold text-gray-800">{monthNames[currentMonth]} {currentYear}</h2>
             <button onClick={handleNextMonth}><ChevronRight/></button>
-            <button 
-              onClick={() => {
-                const today = new Date();
-                const newPeriod = {
-                  start: `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`,
-                  end: `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${(today.getDate() + 5).toString().padStart(2, '0')}`
-                };
-                setPeriodDates([...periodDates, newPeriod]);
-              }}
+            <button
+              onClick={handleAddPeriod}
               className="text-sm bg-rose-100 text-rose-600 px-4 py-2 rounded-full font-semibold"
             >
               + Marcar Período
@@ -224,12 +245,12 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
               </button>
             </div>
             <div className="space-y-2 text-sm text-gray-700">
-              <p><strong>Fase:</strong> {cyclePhases[getDayPhase(selectedDate).phase].name}</p>
-              <p><strong>Status:</strong> {isPeriodDay(selectedDate) ? 'Menstruação' : isPredictedPeriod(selectedDate) ? 'Previsão de período' : 'Normal'}</p>
+              <p><strong>Fase:</strong> {cyclePhases[getDayPhaseForDate(selectedDate)].name}</p>
+              <p><strong>Status:</strong> {isPeriodDay(selectedDate) ? 'Menstruação' : 'Normal'}</p>
             </div>
             {!isPeriodDay(selectedDate) && (
-              <button className="w-full mt-4 py-3 bg-rose-400 text-white font-semibold rounded-xl">
-                Marcar como período
+              <button onClick={handleAddPeriod} className="w-full mt-4 py-3 bg-rose-400 text-white font-semibold rounded-xl">
+                Marcar início do ciclo
               </button>
             )}
           </div>
@@ -256,7 +277,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4">
         <div className="flex justify-around max-w-md mx-auto">
-          <button 
+          <button
             onClick={() => setCurrentScreen('home')}
             className="flex flex-col items-center gap-1"
           >
@@ -267,14 +288,14 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({
             <Calendar className="w-6 h-6 text-rose-500" />
             <span className="text-xs font-medium text-rose-500">Ciclo</span>
           </button>
-          <button 
+          <button
             onClick={() => setCurrentScreen('history')}
             className="flex flex-col items-center gap-1"
           >
             <BarChart3 className="w-6 h-6 text-gray-400" />
             <span className="text-xs text-gray-400">Progresso</span>
           </button>
-          <button 
+          <button
             onClick={() => setCurrentScreen('settings')}
             className="flex flex-col items-center gap-1"
           >

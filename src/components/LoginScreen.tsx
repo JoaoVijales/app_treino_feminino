@@ -1,18 +1,32 @@
+"use client";
 import React, { useState } from 'react';
 import AuthScreen from './AuthScreen';
+import { supabase } from '../utils/supabaseClient'; // Import supabase
 
 interface LoginScreenProps {
-  setCurrentScreen: (screen: string) => void;
+  onRegister: () => void;
+  onForgotPassword: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ setCurrentScreen }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onRegister, onForgotPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = () => {
-    // For now, just navigate to home screen
-    console.log('Login attempt:', { email, password });
-    setCurrentScreen('home');
+  const handleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError(error.message);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,24 +48,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ setCurrentScreen }) => {
       <button
         onClick={handleLogin}
         className="w-full px-6 py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all"
+        disabled={loading}
       >
-        Entrar
+        {loading ? 'Entrando...' : 'Entrar'}
       </button>
-      <button
-        onClick={() => console.log('Login with Google clicked')}
-        className="w-full px-6 py-4 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all mt-3 flex items-center justify-center gap-2"
-      >
-        {/* Placeholder for Google Icon */}
-        Login com Google
-      </button>
+      {error && <p className="text-red-500 mt-2">{error}</p>}
       <div className="text-center text-gray-600 text-sm mt-4">
-        <button onClick={() => setCurrentScreen('forgot-password')} className="text-rose-500 hover:underline">
+        <button onClick={onForgotPassword} className="text-rose-500 hover:underline">
           Esqueceu sua senha?
         </button>
       </div>
       <div className="text-center text-gray-600 text-sm mt-2">
         Não tem uma conta?{' '}
-        <button onClick={() => setCurrentScreen('register')} className="text-rose-500 hover:underline">
+        <button onClick={onRegister} className="text-rose-500 hover:underline">
           Cadastre-se
         </button>
       </div>

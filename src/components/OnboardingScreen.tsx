@@ -1,9 +1,10 @@
+"use client";
 import React from 'react';
 import { Check } from 'lucide-react';
 import { UserData } from '../types';
 
 interface OnboardingScreenProps {
-  setCurrentScreen: (screen: string) => void;
+  setCurrentScreen: (screen: 'home' | 'history' | 'calendar' | 'settings' | 'feedback' | 'login' | 'register' | 'forgot-password' | 'onboarding' | 'workout-active') => void;
   userData: UserData;
   setUserData: React.Dispatch<React.SetStateAction<UserData>>;
   onboardingStep: number;
@@ -19,6 +20,7 @@ interface OnboardingScreenProps {
     question?: string;
     options?: { value: string; label: string; icon: string; }[];
   }[];
+  onComplete: () => void; // Add the missing onComplete prop
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
@@ -30,9 +32,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   handleOnboardingNext,
   handleOnboardingBack,
   onboardingScreens,
+  onComplete, // Destructure onComplete
 }) => {
   const screen = onboardingScreens[onboardingStep];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-amber-50 p-6 flex flex-col">
       <div className="flex-1 max-w-md mx-auto w-full flex flex-col">
@@ -65,7 +67,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               <input
                 type="text"
                 placeholder={screen.placeholder}
-                value={userData[screen.field]}
+                value={userData[screen.field] || ''}
                 onChange={(e) => setUserData({ ...userData, [screen.field]: e.target.value })}
                 className="w-full px-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-rose-400 outline-none text-lg"
               />
@@ -74,7 +76,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
             {screen.type === 'date' && (
               <input
                 type="date"
-                value={userData[screen.field]}
+                value={userData[screen.field] || ''}
                 onChange={(e) => setUserData({ ...userData, [screen.field]: e.target.value })}
                 className="w-full px-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-rose-400 outline-none text-lg"
               />

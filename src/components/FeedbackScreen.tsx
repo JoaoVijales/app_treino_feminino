@@ -1,14 +1,24 @@
+"use client";
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
+import { useWorkoutSession } from '../hooks/useWorkoutSession';
 
 interface FeedbackScreenProps {
-  setCurrentScreen: (screen: string) => void;
+  onClose: () => void;
 }
 
-const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ setCurrentScreen }) => {
-  const [rpe, setRpe] = useState(5);
+const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ onClose }) => {
+  const { currentWorkoutSession, finishWorkoutSession } = useWorkoutSession();
+  const [intensity, setIntensity] = useState(5);
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+
+  const handleFinish = async () => {
+    if (currentWorkoutSession) {
+      await finishWorkoutSession(intensity, symptoms.join(', '), notes);
+      onClose();
+    }
+  };
 
   const symptomOptions = [
     { value: 'energizada', label: 'Energizada', icon: '⚡' },
@@ -39,9 +49,9 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ setCurrentScreen }) => 
               {[...Array(10)].map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => setRpe(i + 1)}
+                  onClick={() => setIntensity(i + 1)}
                   className={`flex-1 aspect-square rounded-xl font-bold transition-all ${
-                    rpe === i + 1
+                    intensity === i + 1
                       ? 'bg-gradient-to-br from-rose-400 to-purple-400 text-white shadow-lg scale-110'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
@@ -95,7 +105,7 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ setCurrentScreen }) => 
         </div>
 
         <button
-          onClick={() => setCurrentScreen('home')}
+          onClick={handleFinish}
           className="w-full mt-6 py-4 bg-gradient-to-r from-rose-400 to-purple-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all"
         >
           Salvar e Finalizar

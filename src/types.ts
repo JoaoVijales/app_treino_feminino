@@ -3,12 +3,12 @@ import { LucideProps } from 'lucide-react';
 
 export interface UserData {
   name: string;
-  goal: string;
-  equipment: string[];
-  cycleRegular: string;
-  lastPeriod: string;
-  currentPhase: 'menstrual' | 'folicular' | 'ovulatoria' | 'lutea';
-  cycleDay: number;
+  goal: string | null;
+  equipment: string | null;
+  cycle_regular: string | null; 
+  last_period: string | null;   
+  currentPhase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | null;
+  cycleDay: number | null;
 }
 
 export interface CyclePhase {
@@ -23,18 +23,21 @@ export interface CyclePhases {
 }
 
 export interface TodayWorkoutExercise {
+  id: string;
+  order: number;
   name: string;
-  sets: {set: number , reps: number, }[];
-  rest: string;
+  series: number | null;
+  reps: number | null;
   video: string;
-  reps?: number;
   weight?: number;
   prReps?: number;
   prWeight?: number;
   prDate?: string;
+  equipment?: string | null;
 }
 
 export interface TodayWorkout {
+  id: string;
   title: string;
   duration: string;
   intensity: string;
@@ -57,3 +60,4 @@ export interface OnboardingScreenConfig {
   question?: string;
   options?: { value: string; label: string; icon: string; }[];
 }
+
